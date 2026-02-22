@@ -1,0 +1,33 @@
+# Copyright (c) 2024
+# SPDX-License-Identifier: Apache-2.0
+
+# Console and serial
+CONFIG_CONSOLE=y
+CONFIG_SERIAL=y
+CONFIG_UART_CONSOLE=y
+
+# GPIO support
+CONFIG_GPIO=y
+
+# No clock control (fixed 100MHz)
+CONFIG_CLOCK_CONTROL=n
+
+# RAM-based execution (no XIP)
+CONFIG_XIP=n
+
+# Heap configuration for 64KB ram_main
+CONFIG_HEAP_MEM_POOL_SIZE=8192
+
+# Stack configuration
+CONFIG_MAIN_STACK_SIZE=2048
+CONFIG_INIT_STACKS=n
+
+# Disable unused features to save RAM
+CONFIG_MULTITHREADING=y
+CONFIG_PRINTK=y
+CONFIG_EARLY_CONSOLE=y
+
+# For TFLM applications
+CONFIG_FPU=n
+CONFIG_FP_HARDABI=n
+CONFIG_FP_SOFTABI=n

@@ -1,0 +1,15 @@
+identifier: walle_g_fpga
+name: walle_g FPGA Board
+type: mcu
+arch: riscv32
+toolchain:
+  - zephyr
+  - cross-compile
+ram: 64
+flash: 0
+supported:
+  - uart
+  - gpio
+  - spi
+  - i2c
+vendor: custom

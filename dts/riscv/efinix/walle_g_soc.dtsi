@@ -1,0 +1,244 @@
+/*
+ * Copyright (c) 2024
+ * Based on walle_g project - OpenTitan Earl Grey style + Efinix SapphireSoC
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * IMPORTANT: This is a hybrid SoC with NO physical DDR!
+ *
+ * Memory layout (from walle_sram.ld - OpenTitan test RAM style):
+ * - ram_code: 0x10000000 (448KB) - code execution region (simulation/test)
+ * - ram_main:  0x10070000 (64KB)  - data/bss/heap/stack
+ *
+ * Note: The ram_code/ram_main addresses are OpenTitan-style test memory.
+ * The actual on-chip memory is only SYSTEM_RAM_A (4KB at 0xF9000000).
+ * This SoC variant has NO physical DDR connected despite having DDR address
+ * window definitions in soc.h.
+ *
+ * Peripheral addresses from soc.h:
+ * - PLIC:  0xF8C00000
+ * - CLINT: 0xF8B00000
+ * - UART:  0xF8010000
+ * - SPI:   0xF8014000
+ * - I2C:   0xF8015000
+ * - RAM_A: 0xF9000000 (4KB - only actual on-chip RAM)
+ */
+
+#include <mem.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	model = "walle_g,modified-sapphire";
+	compatible = "walle_g,modified-sapphire";
+
+	/*
+	 * Primary SRAM for code execution (OpenTitan style)
+	 * This is where the bootloader loads and executes code
+	 */
+	ram_code: memory@10000000 {
+		device_type = "memory";
+		reg = <0x10000000 DT_SIZE_K(448)>;
+	};
+
+	/*
+	 * Main RAM for data, bss, heap and stack
+	 */
+	ram0: memory@10070000 {
+		device_type = "memory";
+		reg = <0x10070000 DT_SIZE_K(64)>;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			clock-frequency = <100000000>;
+			compatible = "walle_g,riscv", "riscv";
+			device_type = "cpu";
+			reg = <0>;
+			/*
+			 * RV32IM only - no A/C/F/D extensions
+			 * Based on soc.h: SYSTEM_RISCV_ISA_EXT_A/C/F/D = 0
+			 */
+			riscv,isa = "rv32im_zicsr_zifencei";
+			status = "okay";
+
+			hlic: interrupt-controller {
+				compatible = "riscv,cpu-intc";
+				#address-cells = <0>;
+				#interrupt-cells = <1>;
+				interrupt-controller;
+			};
+		};
+	};
+
+	soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "walle_g,soc";
+		ranges;
+
+		/*
+		 * PLIC - Platform Level Interrupt Controller
+		 * Address: 0xF8C00000, Size: 0x400000 (4MB)
+		 */
+		plic0: interrupt-controller@f8c00000 {
+			compatible = "sifive,plic-1.0.0";
+			#address-cells = <0>;
+			#interrupt-cells = <2>;
+			interrupt-controller;
+			interrupts-extended = <&hlic 11>;
+			reg = <0xf8c00000 0x00400000>;
+			riscv,max-priority = <7>;
+			riscv,ndev = <32>;
+		};
+
+		/*
+		 * CLINT - Core Local Interruptor
+		 * Address: 0xF8B00000, Size: 0x10000 (64KB)
+		 * Clock: 100MHz (SYSTEM_CLINT_HZ = 100000000)
+		 */
+		clint: clint@f8b00000 {
+			compatible = "sifive,clint0";
+			interrupts-extended = <&hlic 3 &hlic 7>;
+			reg = <0xf8b00000 0x10000>;
+		};
+
+		/*
+		 * Machine Timer
+		 * mtime at 0xF8B0BFF8, mtimecmp at 0xF8B04000
+		 */
+		mtimer: timer@f8b0bff8 {
+			compatible = "riscv,machine-timer";
+			interrupts-extended = <&hlic 7>;
+			reg = <0xf8b0bff8 0x8 0xf8b04000 0x8>;
+			reg-names = "mtime", "mtimecmp";
+		};
+
+		/*
+		 * UART0
+		 * Address: 0xF8010000, Size: 0x40
+		 * Interrupt: 1 (SYSTEM_PLIC_SYSTEM_UART_0_IO_INTERRUPT)
+		 * Baud: 115200, TX/RX FIFO depth: 128
+		 */
+		uart0: uart@f8010000 {
+			compatible = "efinix,sapphire-uart0";
+			interrupt-parent = <&plic0>;
+			interrupts = <1 1>;
+			reg = <0xf8010000 0x40>;
+			reg-names = "base";
+			current-speed = <115200>;
+			status = "disabled";
+		};
+
+		/*
+		 * SPI0
+		 * Address: 0xF8014000, Size: 0x1000 (4KB)
+		 * Interrupt: 2 (SYSTEM_PLIC_SYSTEM_SPI_0_IO_INTERRUPT)
+		 */
+		spi0: spi@f8014000 {
+			compatible = "efinix,sapphire-spi";
+			interrupt-parent = <&plic0>;
+			interrupts = <2 1>;
+			reg = <0xf8014000 0x1000>;
+			reg-names = "base";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		/*
+		 * I2C0
+		 * Address: 0xF8015000, Size: 0x100 (256B)
+		 * Interrupt: 3 (SYSTEM_PLIC_SYSTEM_I2C_0_IO_INTERRUPT)
+		 */
+		i2c0: i2c@f8015000 {
+			compatible = "efinix,sapphire-i2c";
+			interrupt-parent = <&plic0>;
+			interrupts = <3 1>;
+			reg = <0xf8015000 0x100>;
+			reg-names = "base";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		/*
+		 * APB Slave interfaces for external peripherals
+		 */
+		apb_slave_0: apb@f8100000 {
+			compatible = "simple-bus";
+			reg = <0xf8100000 0x10000>;
+			ranges;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+		};
+
+		apb_slave_1: apb@f8110000 {
+			compatible = "simple-bus";
+			reg = <0xf8110000 0x10000>;
+			ranges;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+		};
+
+		/*
+		 * Internal RAM A
+		 * Address: 0xF9000000, Size: 0x1000 (4KB)
+		 */
+		ram_a: memory@f9000000 {
+			reg = <0xf9000000 0x1000>;
+		};
+
+		/*
+		 * User Interrupt A - PLIC interrupt 6
+		 * Can be connected to custom CFU (Custom Function Unit)
+		 */
+		user_interrupt_a: user-interrupt-a {
+			compatible = "walle_g,user-interrupt";
+			interrupt-parent = <&plic0>;
+			interrupts = <6 1>;
+			status = "disabled";
+		};
+
+		/*
+		 * User Interrupt B - PLIC interrupt 7
+		 */
+		user_interrupt_b: user-interrupt-b {
+			compatible = "walle_g,user-interrupt";
+			interrupt-parent = <&plic0>;
+			interrupts = <7 1>;
+			status = "disabled";
+		};
+
+		/*
+		 * AXI Master interface (address window only, no physical device)
+		 * Address: 0xE1000000, Size: 16MB
+		 * Interrupt: 30 (SYSTEM_PLIC_SYSTEM_AXI_A_INTERRUPT)
+		 * Note: This is just an address window definition, not actual memory
+		 */
+		axi_a: axi@e1000000 {
+			compatible = "simple-bus";
+			reg = <0xe1000000 0x01000000>;
+			ranges;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			interrupt-parent = <&plic0>;
+			interrupts = <30 1>;
+			status = "disabled";
+		};
+
+		/*
+		 * DDR address window (SYSTEM_DDR_BMB) - NOT actual physical DDR!
+		 * soc.h defines SYSTEM_DDR_BMB at 0x1000 with size 0xe0000000
+		 * This is only an address window for potential external DDR controller,
+		 * but no physical DDR is connected on this SoC variant.
+		 * DO NOT use this as system memory.
+		 */
+	};
+};
