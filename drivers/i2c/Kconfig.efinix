@@ -1,0 +1,9 @@
+# Copyright (c) 2026
+# SPDX-License-Identifier: Apache-2.0
+
+config I2C_EFINIX_SAPPHIRE
+	bool "Efinix Sapphire I2C controller"
+	default y
+	depends on DT_HAS_EFINIX_SAPPHIRE_I2C_ENABLED
+	help
+	  Enable the Efinix Sapphire I2C controller driver.

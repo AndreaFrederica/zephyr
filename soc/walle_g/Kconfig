@@ -5,10 +5,10 @@ config SOC_WALLE_G
 	select INCLUDE_RESET_VECTOR
 	select RISCV_ISA_RV32I
 	select RISCV_ISA_EXT_M
-	# Note: No A extension - based on soc.h
+	select RISCV_ISA_EXT_C
+	# No A extension (matches soc.h)
 	select RISCV_ISA_EXT_ZICSR
 	select RISCV_ISA_EXT_ZIFENCEI
 	select RISCV
 	select RISCV_PRIVILEGED
-	select RISCV_HAS_PLIC
-	# No XIP - RAM-based execution
+	imply XIP

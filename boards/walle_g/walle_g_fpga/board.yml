@@ -1,6 +1,6 @@
 board:
   name: walle_g_fpga
   full_name: walle_g FPGA Board
-  vendor: walle_g
+  vendor: efinix
   socs:
   - name: walle_g

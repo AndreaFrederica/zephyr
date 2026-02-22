@@ -15,15 +15,15 @@ config NUM_IRQS
 config 2ND_LVL_INTR_00_OFFSET
 	default 11
 
-# No A extension - disable atomic operations
+# No A extension
 config ATOMIC_OPERATIONS_C
 	default y
 
-# RAM-based execution (no XIP)
+# Keep code in ram_code and data/bss in ram_main.
 config XIP
-	default n
+	default y
 
-# Stack and heap settings for limited ram_main (64KB)
+# Stack and heap settings for ram_main (64KB)
 config MAIN_STACK_SIZE
 	default 2048
 

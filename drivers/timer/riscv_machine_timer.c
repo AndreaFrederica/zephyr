@@ -67,6 +67,16 @@ static uintptr_t get_hart_mtimecmp(void)
 
 static void set_mtimecmp(uint64_t time)
 {
+#if defined(CONFIG_SOC_WALLE_G)
+	/*
+	 * Walle_g bitstreams used in bring-up expose only the low 32-bit
+	 * CLINT timer words reliably. Accessing high words can raise
+	 * load/store access faults. Program only the low compare word.
+	 */
+	volatile uint32_t *r = (uint32_t *)get_hart_mtimecmp();
+
+	r[0] = (uint32_t)time;
+#else
 #ifdef CONFIG_64BIT
 	*(volatile uint64_t *)get_hart_mtimecmp() = time;
 #else
@@ -82,10 +92,14 @@ static void set_mtimecmp(uint64_t time)
 	r[0] = (uint32_t)time;
 	r[1] = (uint32_t)(time >> 32);
 #endif
+#endif
 }
 
 static uint64_t mtime(void)
 {
+#if defined(CONFIG_SOC_WALLE_G)
+	return (uint64_t)(*(volatile uint32_t *)MTIME_REG);
+#else
 #ifdef CONFIG_64BIT
 	return *(volatile uint64_t *)MTIME_REG;
 #else
@@ -99,6 +113,7 @@ static uint64_t mtime(void)
 	} while (r[1] != hi);
 
 	return (((uint64_t)hi) << 32) | lo;
+#endif
 #endif
 }
 

@@ -1,13 +1,7 @@
 /*
  * Copyright (c) 2024
- * walle_g FPGA board - Modified Efinix Sapphire with OpenTitan-style memory
  *
  * SPDX-License-Identifier: Apache-2.0
- *
- * This board definition is for the walle_g project which combines:
- * - OpenTitan Earl Grey style memory layout
- * - Efinix SapphireSoC peripherals
- * - TFLM (TensorFlow Lite Micro) support
  */
 
 /dts-v1/;
@@ -16,65 +10,10 @@
 
 / {
 	model = "walle_g FPGA Board";
-	compatible = "walle_g,fpga";
+	compatible = "efinix,walle-g-fpga";
 
 	chosen {
-		zephyr,console = &uart0;
-		zephyr,shell-uart = &uart0;
-		/*
-		 * Use ram0 (0x10070000) as primary SRAM for Zephyr
-		 * This matches the ram_main region in walle_sram.ld
-		 */
 		zephyr,sram = &ram0;
-		/*
-		 * Code execution region (ram_code at 0x10000000)
-		 * Used for text/rodata placement
-		 */
-		zephyr,code = &ram_code;
+		zephyr,flash = &flash0;
 	};
-
-	aliases {
-		/* Serial console */
-		serial0 = &uart0;
-		/* SPI for potential flash/storage */
-		spi0 = &spi0;
-		/* I2C for sensors */
-		i2c0 = &i2c0;
-	};
-};
-
-/*
- * Enable and configure UART0 as console
- * Based on soc.h configuration:
- * - Baud rate: 115200
- * - TX/RX FIFO: 128 bytes each
- */
-&uart0 {
-	status = "okay";
-	current-speed = <115200>;
-};
-
-/*
- * SPI0 - can be used for external flash or sensors
- */
-&spi0 {
-	status = "okay";
-};
-
-/*
- * I2C0 - for sensor connectivity
- */
-&i2c0 {
-	status = "okay";
-};
-
-/*
- * APB slave interfaces - can be enabled for custom peripherals
- */
-&apb_slave_0 {
-	status = "disabled";
-};
-
-&apb_slave_1 {
-	status = "disabled";
 };

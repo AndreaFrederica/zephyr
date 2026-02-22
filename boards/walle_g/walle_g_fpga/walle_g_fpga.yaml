@@ -6,10 +6,7 @@ toolchain:
   - zephyr
   - cross-compile
 ram: 64
-flash: 0
+flash: 448
 supported:
   - uart
-  - gpio
-  - spi
-  - i2c
-vendor: custom
+vendor: efinix

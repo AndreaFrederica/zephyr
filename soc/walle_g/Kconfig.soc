@@ -4,11 +4,11 @@
 config SOC_WALLE_G
 	bool
 	help
-	  walle_g - Custom FPGA SoC with OpenTitan-style memory layout
+	  walle_g - Custom FPGA SoC with split ram_code/ram_main layout
 	  Features:
-	  - OpenTitan Earl Grey style memory mapping (ram_code at 0x10000000)
-	  - RV32IM ISA (no A/C/F/D extensions)
-	  - TFLM (TensorFlow Lite Micro) optimized
+	  - Code region at 0x10000000, data SRAM at 0x10070000
+	  - RV32IMC ISA (no A/F/D extensions)
+	  - Efinix Sapphire-compatible interrupt and UART blocks
 
 config SOC
 	default "walle_g" if SOC_WALLE_G
