@@ -83,7 +83,6 @@ DNS_CACHE_DEFINE(dns_cache, CONFIG_DNS_RESOLVER_CACHE_MAX_ENTRIES);
 #endif /* CONFIG_DNS_RESOLVER_CACHE */
 
 static K_MUTEX_DEFINE(lock);
-static int init_called;
 static struct dns_resolve_context dns_default_ctx;
 
 /* Must be invoked with context lock held */
@@ -887,7 +886,7 @@ skip_event:
 		goto fail;
 	}
 
-	init_called++;
+	ctx->init_called++;
 	ctx->state = DNS_RESOLVE_CONTEXT_ACTIVE;
 	ctx->buf_timeout = DNS_BUF_TIMEOUT;
 	ret = 0;
@@ -910,16 +909,18 @@ int dns_resolve_init_with_svc(struct dns_resolve_context *ctx, const char *serve
 	k_mutex_lock(&lock, K_FOREVER);
 
 	/* Do cleanup only if we are starting the context for the first time */
-	if (init_called == 0) {
+	if (ctx->init_called == 0) {
 		(void)memset(ctx, 0, sizeof(*ctx));
 
 		(void)k_mutex_init(&ctx->lock);
 		ctx->state = DNS_RESOLVE_CONTEXT_INACTIVE;
 	}
 
+	k_mutex_lock(&ctx->lock, K_FOREVER);
 	ret = dns_resolve_init_locked(ctx, servers, servers_sa, svc, port,
 				      interfaces, true, DNS_SOURCE_UNKNOWN);
 
+	k_mutex_unlock(&ctx->lock);
 	k_mutex_unlock(&lock);
 
 	return ret;
@@ -1412,13 +1413,18 @@ int dns_validate_msg(struct dns_resolve_context *ctx,
 
 		invoke_query_callback(DNS_EAI_INPROGRESS, &info, &ctx->queries[*query_idx]);
 
-		if (dns_msg->response_type == DNS_RESPONSE_IP ||
-		    dns_msg->response_type == DNS_RESPONSE_SRV) {
+		switch (dns_msg->response_type) {
+		case DNS_RESPONSE_IP:
+		case DNS_RESPONSE_SRV:
+		case DNS_RESPONSE_DATA:
 #ifdef CONFIG_DNS_RESOLVER_CACHE
 			dns_cache_add(&dns_cache,
 				ctx->queries[*query_idx].query, &info, ttl);
 #endif /* CONFIG_DNS_RESOLVER_CACHE */
 			items++;
+			break;
+		default:
+			break;
 		}
 	}
 
@@ -2257,8 +2263,8 @@ static int dns_resolve_close_locked(struct dns_resolve_context *ctx)
 		}
 	}
 
-	if (--init_called <= 0) {
-		init_called = 0;
+	if (--ctx->init_called <= 0) {
+		ctx->init_called = 0;
 	}
 
 	k_mutex_lock(&ctx->lock, K_FOREVER);
@@ -2360,7 +2366,7 @@ static int do_dns_resolve_reconfigure(struct dns_resolve_context *ctx,
 	}
 
 	if (ctx->state == DNS_RESOLVE_CONTEXT_ACTIVE &&
-	    (do_close || init_called == 0)) {
+	    (do_close || ctx->init_called == 0)) {
 		dns_resolve_cancel_all(ctx);
 
 		err = dns_resolve_close_locked(ctx);

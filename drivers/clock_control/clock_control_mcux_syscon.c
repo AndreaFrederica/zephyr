@@ -18,11 +18,11 @@ LOG_MODULE_REGISTER(clock_control);
 static int mcux_lpc_syscon_clock_control_on(const struct device *dev,
 					    clock_control_subsys_t sub_system)
 {
-#if defined(CONFIG_CAN_MCUX_MCAN)
+#if defined(CONFIG_CAN_NXP_LPC_MCAN)
 	if ((uint32_t)sub_system == MCUX_MCAN_CLK) {
 		CLOCK_EnableClock(kCLOCK_Mcan);
 	}
-#endif /* defined(CONFIG_CAN_MCUX_MCAN) */
+#endif /* defined(CONFIG_CAN_NXP_LPC_MCAN) */
 #if defined(CONFIG_COUNTER_NXP_MRT)
 	if ((uint32_t)sub_system == MCUX_MRT_CLK) {
 #if defined(CONFIG_SOC_FAMILY_LPC) || defined(CONFIG_SOC_SERIES_RW6XX) ||                          \
@@ -114,7 +114,7 @@ static int mcux_lpc_syscon_clock_control_on(const struct device *dev,
 	default:
 		break;
 	}
-#endif /* defined(CONFIG_CAN_MCUX_MCAN) */
+#endif /* defined(CONFIG_CAN_MCUX_FLEXCAN) */
 
 #ifdef CONFIG_ETH_NXP_ENET
 	if ((uint32_t)sub_system == MCUX_ENET_CLK) {
@@ -441,11 +441,11 @@ static int mcux_lpc_syscon_clock_control_get_subsys_rate(const struct device *de
 		break;
 #endif
 
-#if defined(CONFIG_CAN_MCUX_MCAN)
+#if defined(CONFIG_CAN_NXP_LPC_MCAN)
 	case MCUX_MCAN_CLK:
 		*rate = CLOCK_GetMCanClkFreq();
 		break;
-#endif /* defined(CONFIG_CAN_MCUX_MCAN) */
+#endif /* defined(CONFIG_CAN_NXP_LPC_MCAN) */
 
 #if defined(CONFIG_COUNTER_MCUX_CTIMER) || defined(CONFIG_PWM_MCUX_CTIMER)
 	case MCUX_CTIMER0_CLK:
@@ -473,21 +473,26 @@ static int mcux_lpc_syscon_clock_control_get_subsys_rate(const struct device *de
 		*rate = CLOCK_GetCTimerClkFreq(7);
 		break;
 #endif
-
-#if defined(CONFIG_COUNTER_NXP_MRT)
+#if defined(CONFIG_COUNTER_NXP_MRT) || defined(CONFIG_SOC_SERIES_RW6XX) \
+		|| defined(CONFIG_PWM_MCUX_SCTIMER)
+	#if defined(CONFIG_COUNTER_NXP_MRT)
 	case MCUX_MRT_CLK:
-#if defined(CONFIG_SOC_SERIES_RW6XX)
+	#endif /* CONFIG_COUNTER_NXP_MRT */
+	#if defined(CONFIG_SOC_SERIES_RW6XX)
 	case MCUX_FREEMRT_CLK:
-#endif /* RW */
-#endif /* MRT */
-#if defined(CONFIG_PWM_MCUX_SCTIMER)
+	#endif /* CONFIG_SOC_SERIES_RW6XX */
+	#if defined(CONFIG_PWM_MCUX_SCTIMER)
 	case MCUX_SCTIMER_CLK:
-#endif
-#ifdef CONFIG_SOC_SERIES_RW6XX
-		/* RW6XX uses core clock for SCTimer, not bus clock */
+	#endif /* CONFIG_PWM_MCUX_SCTIMER */
+	#ifdef CONFIG_SOC_SERIES_RW6XX
+		/* RW6XX uses core clock for SCTimer/MRT, not bus clock */
 		*rate = CLOCK_GetCoreSysClkFreq();
+	#else
+		*rate = CLOCK_GetFreq(kCLOCK_BusClk);
+	#endif
 		break;
-#else
+#endif
+#ifndef CONFIG_SOC_SERIES_RW6XX
 	case MCUX_BUS_CLK:
 		*rate = CLOCK_GetFreq(kCLOCK_BusClk);
 		break;
@@ -511,7 +516,7 @@ static int mcux_lpc_syscon_clock_control_get_subsys_rate(const struct device *de
 		*rate = CLOCK_GetI3cClkFreq();
 #endif
 		break;
-#endif
+#endif /* (FSL_FEATURE_SOC_I3C_COUNT == 2) */
 
 #endif /* CONFIG_I3C_MCUX */
 
@@ -529,7 +534,7 @@ static int mcux_lpc_syscon_clock_control_get_subsys_rate(const struct device *de
 		*rate = CLOCK_GetDcPixelClkFreq();
 #endif
 		break;
-#endif
+#endif /* defined(CONFIG_MIPI_DSI_MCUX_2L)  */
 #if defined(CONFIG_AUDIO_DMIC_MCUX)
 	case MCUX_DMIC_CLK:
 		*rate = CLOCK_GetDmicClkFreq();

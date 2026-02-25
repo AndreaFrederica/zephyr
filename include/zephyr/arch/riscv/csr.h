@@ -261,37 +261,14 @@
 				  : "memory");		\
 	} while (0)
 
-#ifdef CONFIG_RISCV_ISA_EXT_SMCSRIND
-
-static inline unsigned long icsr_read(unsigned int index)
-{
-	csr_write(MISELECT, index);
-	return csr_read(MIREG);
-}
-
-static inline void icsr_write(unsigned int index, unsigned long value)
-{
-	csr_write(MISELECT, index);
-	csr_write(MIREG, value);
-}
-
-static inline unsigned long icsr_read_set(unsigned int index, unsigned long mask)
-{
-	unsigned long val = icsr_read(index);
-
-	icsr_write(index, val | mask);
-	return val;
-}
-
-static inline unsigned long icsr_read_clear(unsigned int index, unsigned long mask)
-{
-	unsigned long val = icsr_read(index);
-
-	icsr_write(index, val & ~mask);
-	return val;
-}
-
-#endif /* CONFIG_RISCV_ISA_EXT_SMCSRIND */
+#define csr_swap(csr, val)					\
+({								\
+	unsigned long __swv = (unsigned long)(val);		\
+	__asm__ volatile ("csrrw %0, " STRINGIFY(csr) ", %1"	\
+			  : "=r" (__swv) : "rK" (__swv)		\
+			  : "memory");				\
+	__swv;							\
+})
 
 #endif /* !_ASMLANGUAGE */
 

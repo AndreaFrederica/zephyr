@@ -30,25 +30,22 @@ import tempfile
 
 import serial
 from colorama import Fore, Style
+from elftools.elf.elffile import ELFFile
 from west.app.main import WestApp
 from west.configuration import Configuration, config
 from west.util import west_topdir
 
-STATUS_REPLY_PATTERN = r"(0|1)\s(0|1)"
+STATUS_REPLY_PATTERN = r"(0|1)\s(0|1)\s(0|1)"
 
 
 LISTSETS_REPLY_PATTERN = r"(trigger|stopper): (0x[0-9A-Fa-f]+)"
 
-
-PATTERN = r"([0-9A-Fa-f]{8}).*(text).*([0-9A-Fa-f]{8})\s(.*)"
-
+# Regex of human-readable symbol name
+SYMBOL_NAME_REGEX = r"(^[a-zA-Z_][a-zA-Z0-9_]*)"
 
 ELF = "zephyr/zephyr.elf"
 
 CTF_METADATA = "ctf_metadata"
-
-
-OBJDUMP_CMD = ["objdump", "-t"]
 
 
 CPPFILT_CMD = ["c++filt"]
@@ -72,29 +69,17 @@ def get_symbols_from_elf(elf_file, verbose=False):
 
     assert elf_file.exists(), f"File '{elf_file}' does not exist!"
 
-    cmd = OBJDUMP_CMD + [elf_file]
-
-    try:
-        output = subprocess.check_output(cmd, text=True)
-    except subprocess.CalledProcessError:
-        cmd = " ".join(cmd)
-        print(f"'{cmd}' failed execution. Check if it is properly installed.")
-        sys.exit(2)
-    except FileNotFoundError:
-        print(f"Could not find executable '{OBJDUMP_CMD[0]}'. Please install it.")
-        sys.exit(3)
-
-    if verbose:
-        print(f"Reading symbols from '{pathlib.Path(elf_file).resolve()}'.")
-
-    lines = output.split("\n")
-    r = re.compile(PATTERN)
     # dict: {addr: symbol}
-    addr_to_symbol = {
-        r.match(line).group(1): r.match(line).group(4)
-        for line in lines
-        if r.match(line) is not None
-    }
+    addr_to_symbol = {}
+
+    pattern = re.compile(SYMBOL_NAME_REGEX)
+    with ELFFile.load_from_path(str(elf_file.resolve())) as elf:
+        for symbol in elf.get_section_by_name(".symtab").iter_symbols():
+            name = pattern.match(symbol.name)
+            if name is None:
+                continue
+
+            addr_to_symbol[symbol.entry.st_value] = name.group(0)
 
     # '0' symbol is special and is mapped to address 0. It's used to disable
     # trigger and stopper.
@@ -320,8 +305,13 @@ def get_target_status(port, verbose=False):
 
     trace_enabled = r.group(1) == "1"
     profile_enabled = r.group(2) == "1"
+    dynamic_trigger_enabled = r.group(3) == "1"
 
-    return {"trace": trace_enabled, "profile": profile_enabled}
+    return {
+        "trace": trace_enabled,
+        "profile": profile_enabled,
+        "dynamic_trigger": dynamic_trigger_enabled,
+    }
 
 
 def get_trigger_stopper_addr(port):
@@ -356,12 +346,10 @@ def get_trigger_stopper_addr(port):
     # If trigger_addr or stopper_addr is 'None', then skip format.
 
     if trigger_addr:
-        addr = int(trigger_addr.group(2), base=16)
-        trigger_addr = f'{addr:08x}'
+        trigger_addr = int(trigger_addr.group(2), base=16)
 
     if stopper_addr:
-        addr = int(stopper_addr.group(2), base=16)
-        stopper_addr = f'{addr:08x}'
+        stopper_addr = int(stopper_addr.group(2), base=16)
 
     return {"trigger": trigger_addr, "stopper": stopper_addr}
 
@@ -376,7 +364,14 @@ def set_trigger_addr(port, addr, verbose=False):
     is returned. If address '0' is given it disables the trigger.
     """
 
-    port.write(b'trigger ' + b'0x' + bytes(addr, "ascii") + b'\r')
+    status = get_target_status(port, verbose)
+    if not status["dynamic_trigger"]:
+        print(
+            Fore.YELLOW + "Dynamic triggers are not supported. Please enable it via 'menuconfig'."
+        )
+        sys.exit(1)
+
+    port.write(b'trigger ' + b'0x' + bytes(f"{addr:08x}", "ascii") + b'\r')
 
     # Check if trigger was set correctly.
     addr_set = get_trigger_stopper_addr(port)["trigger"]
@@ -399,7 +394,7 @@ def set_stopper_addr(port, addr):
     returned. If address '0' is given it disables the stopper.
     """
 
-    port.write(b'stopper ' + b'0x' + bytes(addr, "ascii") + b'\r')
+    port.write(b'trigger ' + b'0x' + bytes(f"{addr:08x}", "ascii") + b'\r')
 
     # Check if stopper was set correctly.
     addr_set = get_trigger_stopper_addr(port)["stopper"]
@@ -494,7 +489,6 @@ def get_and_print_trace(args, port, elf, demangle, annotate_ret=False, verbose=F
 
                     # Resolve callee symbol.
                     callee = event.payload_field.get("callee").real
-                    callee = f'{callee:08x}'  # Format before lookup
                     callee_symbol = symbols.get(callee)
 
                     if callee_symbol is None:
@@ -781,7 +775,6 @@ def export_to_perfetto(args, port, elf, output_filename, demangle, verbose=False
 
                     # Resolve callee symbol.
                     callee = event.payload_field.get("callee").real
-                    callee = f'{callee:08x}'  # Format before lookup
                     callee_symbol = symbols.get(callee)
 
                     assert callee_symbol is not None, (
@@ -1011,7 +1004,6 @@ def get_and_print_profile(args, port, elf, n, verbose=False):
         for i, (callee, delta_t) in enumerate(profiles):
             if i == N:
                 break
-            callee = f'{callee:08x}'
             callee_symbol = symbols.get(callee)
 
             if callee_symbol is None:
@@ -1056,9 +1048,11 @@ def status(args):
 
     trace_status = "supported" if status["trace"] else "not supported"
     profile_status = "supported" if status["profile"] else "not supported"
+    dynamic_trigger_status = "supported" if status["dynamic_trigger"] else "not supported"
 
     print(f'Trace {trace_status}.')
     print(f'Profile {profile_status}.')
+    print(f'Dynamic trigger configuration {dynamic_trigger_status}.')
 
 
 def trace(args):
@@ -1105,6 +1099,14 @@ def trace(args):
         args.stopper = args.couple
 
     if args.trigger or args.stopper:
+        if not status['dynamic_trigger']:
+            print(
+                Fore.YELLOW
+                + "Dynamic trigger configuration is not supported. "
+                + "Please enable it via 'menuconfig'."
+            )
+            sys.exit(1)
+
         elf_file = get_elf_file(args, args.verbose)
         addr_to_symbol = get_symbols_from_elf(elf_file, args.verbose)
         symbol_to_addr = generate_reverse_symbol_lookup(addr_to_symbol)
@@ -1115,7 +1117,7 @@ def trace(args):
                 sys.exit(2)
             else:
                 address = symbol_to_addr[args.trigger]
-                if not set_trigger_addr(sport, address):
+                if not set_trigger_addr(sport, address, verbose=args.verbose):
                     print("Failed to set new trigger address! Check target.")
                     sys.exit(2)
                 else:

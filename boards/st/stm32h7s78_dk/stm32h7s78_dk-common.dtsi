@@ -170,6 +170,12 @@
 	status = "okay";
 };
 
+&rtc {
+	clocks = <&rcc STM32_CLOCK(APB4, 16)>,
+		 <&rcc STM32_SRC_LSE RTC_SEL(1)>;
+	status = "okay";
+};
+
 &timers2 {
 	st,prescaler = <10000>;
 	status = "okay";
@@ -304,6 +310,7 @@ st_cam_i2c: &i2c1 {
 		write-latency = <1>;
 		burst-length = <0>;
 		st,csbound = <11>;
+		st,refresh = <129>;
 		status = "okay";
 	};
 };
@@ -358,6 +365,20 @@ st_cam_i2c: &i2c1 {
 
 &vbat {
 	status = "okay";
+};
+
+&iocell {
+	status = "okay";
+
+	vddxspi1 {
+		hslv-mode = "on";
+		compensation-enabled;
+	};
+
+	vddxspi2 {
+		hslv-mode = "on";
+		compensation-enabled;
+	};
 };
 
 usb2: &usbotg_fs {

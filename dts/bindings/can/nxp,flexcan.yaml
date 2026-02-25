@@ -40,8 +40,25 @@ properties:
 
   number-of-mb:
     type: int
+    enum:
+      - 16
+      - 32
+      - 64
+      - 96
+      - 128
     required: true
-    description: Number of 8-byte payload message buffers FlexCAN instance supported
+    description: |
+      Number of 8-byte sized message buffers (MBs) supported by this FlexCAN instance. CAN FD mode,
+      if supported, uses 64-byte sized MBs, resulting in fewer available MBs.
+
+  max-filters:
+    type: int
+    description: |
+      Maximum number of concurrently active RX filters. The allowed range value depends on the
+      number of available message buffers for the FlexCAN instance.
+
+      If this property is not set, the default maximum number of RX filters set via Kconfig will be
+      used instead.
 
 examples:
   - |
@@ -52,6 +69,7 @@ examples:
       interrupts = <78 0>, <79 0>, <80 0>, <81 0>;
       interrupt-names = "warning", "error", "wake-up", "mb-0-15";
       clocks = <&scg KINETIS_SCG_BUS_CLK>;
+      clock-names = "clksrc1";
       clk-source = <1>;
       number-of-mb = <16>;
       pinctrl-0 = <&pinmux_flexcan0>;

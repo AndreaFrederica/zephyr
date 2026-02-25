@@ -28,7 +28,8 @@ from queue import Empty, Queue
 
 import psutil
 from serial.tools import list_ports
-from twisterlib.environment import ZEPHYR_BASE, strip_ansi_sequences
+from twisterlib.constants import ZEPHYR_BASE
+from twisterlib.environment import strip_ansi_sequences
 from twisterlib.error import TwisterException
 from twisterlib.hardwaremap import DUT
 from twisterlib.platform import Platform
@@ -609,7 +610,7 @@ class DeviceHandler(Handler):
             board_id = hardware.probe_id or hardware.id
             product = hardware.product
             if board_id is not None:
-                if runner in ("pyocd", "nrfjprog", "nrfutil", "nrfutil_next"):
+                if runner in ("pyocd", "nrfjprog", "nrfutil", "nrfutil_next", "spsdk"):
                     command_extra_args.append("--dev-id")
                     command_extra_args.append(board_id)
                 elif runner == "esp32":

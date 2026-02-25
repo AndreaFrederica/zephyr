@@ -15,6 +15,7 @@
 #include <esp_err.h>
 
 #include <esp_app_format.h>
+#include <zephyr/devicetree.h>
 #include <zephyr/storage/flash_map.h>
 #include <esp_rom_uart.h>
 #include <esp_flash.h>
@@ -25,6 +26,9 @@
 
 #include <zephyr/linker/linker-defs.h>
 #include <zephyr/arch/common/init.h>
+#ifdef CONFIG_XTENSA
+#include <zephyr/zsr.h>
+#endif
 
 #if CONFIG_SOC_SERIES_ESP32C6
 #include <soc/hp_apm_reg.h>
@@ -81,7 +85,11 @@
 #define HDR_ATTR __attribute__((section(".entry_addr"))) __attribute__((used))
 
 #if !defined(CONFIG_SOC_ESP32_APPCPU) && !defined(CONFIG_SOC_ESP32S3_APPCPU)
+#if DT_NODE_EXISTS(DT_CHOSEN(zephyr_code_partition))
+#define PART_OFFSET DT_REG_ADDR(DT_CHOSEN(zephyr_code_partition))
+#else
 #define PART_OFFSET FIXED_PARTITION_OFFSET(slot0_partition)
+#endif
 #else
 #define PART_OFFSET FIXED_PARTITION_OFFSET(slot0_appcpu_partition)
 #endif
@@ -302,10 +310,10 @@ void __start(void)
 	__asm__ __volatile__("wsr %0, PS" : : "r"(PS_INTLEVEL(XCHAL_EXCM_LEVEL) | PS_UM | PS_WOE));
 
 	/* Initialize the architecture CPU pointer.  Some of the
-	 * initialization code wants a valid arch_current_thread() before
+	 * initialization code wants a valid arch_curr_cpu() before
 	 * arch_kernel_init() is invoked.
 	 */
-	__asm__ __volatile__("wsr.MISC0 %0; rsync" : : "r"(&_kernel.cpus[0]));
+	__asm__ __volatile__("wsr %0, " ZSR_CPU_STR "; rsync" : : "r"(&_kernel.cpus[0]));
 
 #endif /* CONFIG_RISCV_GP */
 

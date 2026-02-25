@@ -26,6 +26,7 @@ def _import_runner_module(runner_name):
 
 _names = [
     # zephyr-keep-sorted-start
+    'amebaflash',
     'bflb_mcu_tool',
     'blackmagicprobe',
     'bossac',
@@ -41,9 +42,11 @@ _names = [
     'intel_cyclonev',
     'jlink',
     'linkserver',
+    'lldbac',
     'mdb',
     'minichlink',
     'misc',
+    'mpcli',
     'native',
     'nrfjprog',
     'nrfutil',
@@ -56,6 +59,7 @@ _names = [
     'renode',
     'renode-robot',
     'rfp',
+    'rtsflash',
     'sftool',
     'silabs_commander',
     'spi_burn',

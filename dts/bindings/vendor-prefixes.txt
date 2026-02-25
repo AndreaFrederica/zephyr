@@ -30,6 +30,7 @@ adafruit	Adafruit Industries, LLC
 adapteva	Adapteva, Inc.
 adaptrum	Adaptrum, Inc.
 adh	AD Holdings Plc.
+adh-tech	ADH Technology Co. Ltd.
 adi	Analog Devices, Inc.
 advantech	Advantech Corporation
 aeroflexgaisler	Aeroflex Gaisler AB
@@ -39,6 +40,7 @@ aithinker	Ai-Thinker Co., Ltd.
 al	Annapurna Labs
 alcatel	Alcatel
 alientek	Alientek
+alif	Alif Semiconductor
 allegro	Allegro DVT
 allo	Allo.com
 allwinner	Allwinner Technology Co., Ltd.
@@ -475,6 +477,7 @@ netgear	NETGEAR
 netlogic	Broadcom Corporation (formerly NetLogic Microsystems)
 netron-dy	Netron DY
 netronix	Netronix, Inc.
+netsol	Netsol, CO., LTD
 netxeon	Shenzhen Netxeon Technology CO., LTD
 neweast	Guangdong Neweast Optoelectronics CO., LTD
 newhaven	Newhaven Display International
@@ -612,6 +615,7 @@ sc	Space Cubics Inc.
 scdz	Shenzhen Qiushi IoT Technology Co., Ltd.
 schindler	Schindler
 sciosense	Sciosense B.V.
+sct	StarChips Technology Inc.
 seagate	Seagate Technology PLC
 seco	SECO S.p.A.
 seeed	Seeed Technology Co., Ltd
@@ -632,7 +636,7 @@ si-en	Si-En Technology Ltd.
 si-linux	Silicon Linux Corporation
 siemens	Siemens AG
 sifive	SiFive, Inc.
-sifli	SiFli Technologies(Nanjing) Co., Ltd
+sifli	SiFli Technologies
 sigma	Sigma Designs, Inc.
 sii	Seiko Instruments, Inc.
 sil	Silicon Image
@@ -683,6 +687,7 @@ sunw	Sun Microsystems, Inc
 supermicro	Super Micro Computer, Inc.
 swir	Sierra Wireless
 syna	Synaptics Inc.
+synochip	Hangzhou Synochip Data Security Technology Co., Ltd.
 synology	Synology, Inc.
 tbs	TBS Technologies
 tbs-biometrics	Touchless Biometric Systems AG
@@ -744,6 +749,7 @@ vdl	Van der Laan b.v.
 via	VIA Technologies, Inc.
 vicharak	Vicharak
 videostrong	Videostrong Technology Co., Ltd.
+viewe	VIEWE Display Co., Ltd.
 virtio	Virtual I/O Device Specification, developed by the OASIS consortium
 virtual	Used for virtual device without specific vendor.
 vishay	Vishay Intertechnology, Inc
@@ -807,7 +813,8 @@ zarlink	Zarlink Semiconductor
 zb	Zbit Semiconductor, Inc.
 zealz	Zealz
 zeitec	ZEITEC Semiconductor Co., LTD.
-zephyr	The Zephyr Project
+zephyr	Zephyr Project
+zhiantec	Hangzhou Zhian Technology Co., Ltd.
 zidoo	Shenzhen Zidoo Technology Co., Ltd.
 zii	Zodiac Inflight Innovations
 zinitix	Zinitix Co., Ltd

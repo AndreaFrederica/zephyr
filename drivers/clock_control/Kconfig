@@ -28,9 +28,11 @@ source "subsys/logging/Kconfig.template.log_config"
 
 # zephyr-keep-sorted-start
 source "drivers/clock_control/Kconfig.agilex5"
+source "drivers/clock_control/Kconfig.alif"
 source "drivers/clock_control/Kconfig.ambiq"
 source "drivers/clock_control/Kconfig.arm_scmi"
 source "drivers/clock_control/Kconfig.aspeed"
+source "drivers/clock_control/Kconfig.bee"
 source "drivers/clock_control/Kconfig.beetle"
 source "drivers/clock_control/Kconfig.bflb"
 source "drivers/clock_control/Kconfig.cavs"
@@ -71,5 +73,7 @@ source "drivers/clock_control/Kconfig.tisci"
 source "drivers/clock_control/Kconfig.wch_rcc"
 source "drivers/clock_control/Kconfig.xec"
 # zephyr-keep-sorted-stop
+
+source "drivers/clock_control/Kconfig.rts5817"
 
 endif # CLOCK_CONTROL

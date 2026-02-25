@@ -53,6 +53,7 @@
 #include "common/bt_str.h"
 #include "conn_internal.h"
 #include "direction_internal.h"
+#include "gatt_gap_svc_validate.h"
 #include "hci_core.h"
 #include "id.h"
 #include "iso_internal.h"
@@ -96,12 +97,11 @@ static void conn_tx_destroy(struct bt_conn *conn, struct bt_conn_tx *tx)
 static void tx_complete_work(struct k_work *work);
 #endif /* CONFIG_BT_CONN_TX */
 
-static void notify_recycled_conn_slot(void);
-
 void bt_tx_irq_raise(void);
 
 /* Group Connected BT_CONN only in this */
 #if defined(CONFIG_BT_CONN)
+static void notify_recycled_conn_slot(void);
 /* Peripheral timeout to initialize Connection Parameter Update procedure */
 #define CONN_UPDATE_TIMEOUT  K_MSEC(CONFIG_BT_CONN_PARAM_UPDATE_TIMEOUT)
 
@@ -788,9 +788,6 @@ error_return:
 	return err;
 }
 
-static struct k_poll_signal conn_change =
-		K_POLL_SIGNAL_INITIALIZER(conn_change);
-
 static void conn_destroy(struct bt_conn *conn, void *data)
 {
 	if (conn->state == BT_CONN_CONNECTED ||
@@ -1185,7 +1182,6 @@ void bt_conn_set_state(struct bt_conn *conn, bt_conn_state_t state)
 			}
 			break;
 		}
-		k_poll_signal_raise(&conn_change, 0);
 
 		if (bt_conn_is_iso(conn)) {
 			bt_iso_connected(conn);
@@ -1466,6 +1462,7 @@ struct bt_conn *bt_conn_ref(struct bt_conn *conn)
 	return conn;
 }
 
+#if defined(CONFIG_BT_CONN)
 static K_SEM_DEFINE(pending_recycled_events, 0, K_SEM_MAX_LIMIT);
 
 static void recycled_work_handler(struct k_work *work)
@@ -1477,6 +1474,7 @@ static void recycled_work_handler(struct k_work *work)
 }
 
 static K_WORK_DEFINE(recycled_work, recycled_work_handler);
+#endif /* CONFIG_BT_CONN */
 
 void bt_conn_unref(struct bt_conn *conn)
 {
@@ -1515,12 +1513,16 @@ void bt_conn_unref(struct bt_conn *conn)
 		   (__ASSERT(!conn_tx_is_pending,
 			     "tx_complete_work is pending when conn is deallocated");))
 
+#if defined(CONFIG_BT_CONN)
 	/* Notify listeners that a slot has been freed and can be taken.
 	 * No guarantees are made on requests to claim connection object
 	 * as only the first claim will be served.
 	 */
-	k_sem_give(&pending_recycled_events);
-	k_work_submit(&recycled_work);
+	if (IS_ARRAY_ELEMENT(acl_conns, conn)) {
+		k_sem_give(&pending_recycled_events);
+		k_work_submit(&recycled_work);
+	}
+#endif /* CONFIG_BT_CONN */
 }
 
 uint8_t bt_conn_index(const struct bt_conn *conn)
@@ -1630,9 +1632,9 @@ static void tx_complete_work(struct k_work *work)
 }
 #endif /* CONFIG_BT_CONN_TX */
 
+#if defined(CONFIG_BT_CONN)
 static void notify_recycled_conn_slot(void)
 {
-#if defined(CONFIG_BT_CONN)
 	BT_CONN_CB_DYNAMIC_FOREACH(callback) {
 		if (callback->recycled) {
 			callback->recycled();
@@ -1644,8 +1646,8 @@ static void notify_recycled_conn_slot(void)
 			cb->recycled();
 		}
 	}
-#endif
 }
+#endif
 
 #if !defined(CONFIG_BT_CONN)
 int bt_conn_disconnect(struct bt_conn *conn, uint8_t reason)
@@ -4427,6 +4429,14 @@ int bt_conn_init(void)
 	}
 
 	bt_att_init();
+
+	if (IS_ENABLED(CONFIG_BT_GATT_GAP_SVC_VALIDATE)) {
+		err = gatt_gap_svc_validate();
+		if (err != 0) {
+			LOG_DBG("GATT GAP service validation failed (err %d)", err);
+			return err;
+		}
+	}
 
 	err = bt_smp_init();
 	if (err) {

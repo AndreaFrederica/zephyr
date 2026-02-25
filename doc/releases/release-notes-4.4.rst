@@ -84,11 +84,35 @@ Deprecated APIs and options
     * :c:member:`bt_conn_le_info.interval` has been deprecated. Use
       :c:member:`bt_conn_le_info.interval_us` instead. Note that the units have changed:
       ``interval`` was in units of 1.25 milliseconds, while ``interval_us`` is in microseconds.
+    * The :kconfig:option:`CONFIG_DEVICE_NAME_GATT_WRITABLE_NONE` option has been deprecated.
+      Applications should use :kconfig:option:`CONFIG_BT_DEVICE_NAME_GATT_WRITABLE_NONE`
+      option instead.
+    * The :kconfig:option:`CONFIG_DEVICE_NAME_GATT_WRITABLE_ENCRYPT` option has been deprecated.
+      Applications should use :kconfig:option:`CONFIG_BT_DEVICE_NAME_GATT_WRITABLE_ENCRYPT`
+      option instead.
+    * The :kconfig:option:`CONFIG_DEVICE_NAME_GATT_WRITABLE_AUTHEN` option has been deprecated.
+      Applications should use :kconfig:option:`CONFIG_BT_DEVICE_NAME_GATT_WRITABLE_AUTHEN`
+      option instead.
+    * The :kconfig:option:`CONFIG_DEVICE_APPEARANCE_GATT_WRITABLE_AUTHEN` option has been
+      deprecated.
+      Applications should use :kconfig:option:`CONFIG_BT_DEVICE_APPEARANCE_GATT_WRITABLE_AUTHEN`
+      option instead.
+
+* I2S
+
+  * The following macros have been deprecated and are replaced with equivalent macros whose names
+    are aligned with the `latest revision of the I2S specification`_.
+
+    * :c:macro:`I2S_OPT_BIT_CLK_MASTER` -> :c:macro:`I2S_OPT_BIT_CLK_CONTROLLER`
+    * :c:macro:`I2S_OPT_FRAME_CLK_MASTER` -> :c:macro:`I2S_OPT_FRAME_CLK_CONTROLLER`
+    * :c:macro:`I2S_OPT_BIT_CLK_SLAVE` -> :c:macro:`I2S_OPT_BIT_CLK_TARGET`
+    * :c:macro:`I2S_OPT_FRAME_CLK_SLAVE` -> :c:macro:`I2S_OPT_FRAME_CLK_TARGET`
+
+.. _latest revision of the I2S specification: https://www.nxp.com/docs/en/user-manual/UM11732.pdf
 
 * POSIX
 
   * :kconfig:option:`CONFIG_XOPEN_STREAMS` was deprecated. Instead, use :kconfig:option:`CONFIG_XSI_STREAMS`
-
 * Sensors
 
   * NXP
@@ -132,6 +156,8 @@ New APIs and options
   * Audio
 
     * :c:func:`bt_bap_ep_get_conn`
+    * :c:member:`bt_ccp_call_control_client_cb.user_data`
+    * :kconfig:option:`CONFIG_BT_TBS_MAX_FRIENDLY_NAME_LENGTH`
 
   * Host
 
@@ -169,6 +195,10 @@ New APIs and options
       generating slot 1 images automatically in sysbuild projects when using MCUboot in
       direct-xip mode.
 
+* CPUFreq
+
+  * :kconfig:option:`CONFIG_CPU_FREQ_POLICY_PRESSURE`
+
 * Display
 
   * :kconfig:option:`SSD1325_DEFAULT_CONTRAST`
@@ -194,11 +224,29 @@ New APIs and options
   * :dtcompatible:`jedec,mspi-nor` now allows MSPI configuration of read, write and
     control commands separately via devicetree.
 
+* Haptics
+
+  * Added error callback to API
+
+    * :c:enum:`haptics_error_type` to enumerate common fault conditions in haptics devices.
+    * :c:type:`haptics_error_callback_t` to provide function prototype for error callbacks.
+    * :c:func:`haptics_register_error_callback` to register an error callback with a driver.
+
 * IPM
 
   * IPM callbacks for the mailbox backend now correctly handle signal-only mailbox
     mailbox usage. Applications should be prepared to receive a NULL payload pointer
     in IPM callbacks when no data buffer is provided by the mailbox.
+
+* Management
+
+  * MCUmgr
+
+    * :kconfig:option:`CONFIG_UART_MCUMGR_RAW_PROTOCOL`,
+      :kconfig:option:`CONFIG_MCUMGR_TRANSPORT_RAW_UART`,
+      :kconfig:option:`CONFIG_MCUMGR_TRANSPORT_RAW_UART_INPUT_TIMEOUT`,
+      :kconfig:option:`CONFIG_MCUMGR_TRANSPORT_RAW_UART_INPUT_TIMEOUT_TIME_MS` see
+      :ref:`raw UART MCUmgr SMP transport <mcumgr_smp_transport_raw_uart>` for details.
 
 * Modem
 
@@ -217,6 +265,17 @@ New APIs and options
   * Wi-Fi
 
     * Add support for Wi-Fi Direct (P2P) mode.
+
+* OTP
+
+  * New OTP driver API providing means to provision (:c:func:`otp_program()`) and
+    read (:c:func:`otp_read()`) :abbr:`OTP(One Time Programmable)` memory devices
+    (:github:`101292`). OTP devices can also be accessed through the
+    :ref:`Non-Volatile Memory (NVMEM)<nvmem>` subsystem. Available options are:
+
+    * :kconfig:option:`CONFIG_OTP`
+    * :kconfig:option:`CONFIG_OTP_PROGRAM`
+    * :kconfig:option:`CONFIG_OTP_INIT_PRIORITY`
 
 * PWM
 
@@ -239,6 +298,10 @@ New APIs and options
 
   * :kconfig:option:`CONFIG_SETTINGS_SAVE_SINGLE_SUBTREE_WITHOUT_MODIFICATION`
   * :kconfig:option:`CONFIG_SETTINGS_SAVE_SINGLE_SUBTREE_WITHOUT_MODIFICATION_VALUE_SIZE`
+
+* Shell
+
+  * :c:func:`shell_readline` for :ref:`user input <shell-readline>`
 
 * Sys
 
@@ -309,10 +372,19 @@ New Drivers
 
   * :dtcompatible:`solomon,ssd1325`
 
+* OTP
+
+  * Added new stm32 BSEC driver that provides means to program and read OTP fuses
+    (:dtcompatible:`st,stm32-bsec`). (:github:`102403`)
+  * Added SiFli SF32LB eFuse OTP driver (:dtcompatible:`sifli,sf32lb-efuse`).
+    (:github:`101926`)
+  * :dtcompatible:`nxp,ocotp` (:github:`102567` & :github:`103089`)
+
 New Samples
 ***********
 
 * :zephyr:code-sample:`ble_peripheral_ans`
+* :zephyr:code-sample:`cpu_freq_pressure`
 
 ..
   Same as above, this will also be recomputed at the time of the release.
@@ -344,6 +416,9 @@ Other notable changes
 
   * https://trustedfirmware-m.readthedocs.io/en/tf-mv2.2.2/releases/2.2.1.html
   * https://trustedfirmware-m.readthedocs.io/en/tf-mv2.2.2/releases/2.2.2.html
+
+* NXP SoC DTSI files have been reorganized by moving them into family-specific
+  subdirectories under ``dts/arm/nxp``.
 
 ..
   Any more descriptive subsystem or driver changes. Do you really want to write

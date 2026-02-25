@@ -1,4 +1,4 @@
-# Copyright 2025 NXP
+# Copyright 2025-2026 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -19,6 +19,11 @@ set_variable_ifdef(CONFIG_COUNTER_MCUX_LPC_RTC  CONFIG_MCUX_COMPONENT_driver.lpc
 set_variable_ifdef(CONFIG_GLIKEY_MCUX_GLIKEY    CONFIG_MCUX_COMPONENT_driver.glikey)
 
 if(CONFIG_NXP_LP_FLEXCOMM)
+  # The Zephyr MFD shim driver unconditionally includes <fsl_lpflexcomm.h>.
+  # Ensure the base LPFLEXCOMM MCUX component (and its include directory) is
+  # enabled even in build-only configurations that don't enable LPI2C/LPUART.
+  set(CONFIG_MCUX_COMPONENT_driver.lpflexcomm ON)
+
   set_variable_ifdef(CONFIG_I2C_MCUX_LPI2C      CONFIG_MCUX_COMPONENT_driver.lpflexcomm)
   set_variable_ifdef(CONFIG_I2C_MCUX_LPI2C      CONFIG_MCUX_COMPONENT_driver.lpflexcomm_lpi2c)
   set_variable_ifdef(CONFIG_UART_MCUX_LPUART    CONFIG_MCUX_COMPONENT_driver.lpflexcomm)
@@ -68,7 +73,7 @@ set_variable_ifdef(CONFIG_ENTROPY_MCUX_RNGA     CONFIG_MCUX_COMPONENT_driver.rng
 set_variable_ifdef(CONFIG_ENTROPY_MCUX_TRNG     CONFIG_MCUX_COMPONENT_driver.trng)
 set_variable_ifdef(CONFIG_ENTROPY_MCUX_CAAM     CONFIG_MCUX_COMPONENT_driver.caam)
 set_variable_ifdef(CONFIG_ETH_NXP_ENET          CONFIG_MCUX_COMPONENT_driver.enet)
-set_variable_ifdef(CONFIG_SOC_SERIES_KINETIS_K2X          CONFIG_MCUX_COMPONENT_driver.smc)
+set_variable_ifdef(CONFIG_SOC_SERIES_K2X        CONFIG_MCUX_COMPONENT_driver.smc)
 set_variable_ifdef(CONFIG_SOC_SERIES_KE1XZ      CONFIG_MCUX_COMPONENT_driver.smc)
 set_variable_ifdef(CONFIG_I2C_MCUX              CONFIG_MCUX_COMPONENT_driver.i2c)
 set_variable_ifdef(CONFIG_I2C_NXP_II2C          CONFIG_MCUX_COMPONENT_driver.ii2c)
@@ -206,7 +211,10 @@ if(CONFIG_DT_HAS_NXP_VBAT_ENABLED)
   if(CONFIG_SOC_FAMILY_MCXN OR CONFIG_SOC_FAMILY_MCXA)
     set(CONFIG_MCUX_COMPONENT_driver.mcx_vbat ON)
   else() # KW, MCXW
-    set(CONFIG_MCUX_COMPONENT_driver.vbat ON)
+    if(NOT CONFIG_SOC_MCXW70AC)
+      # MCX W70 does not support VBAT
+      set(CONFIG_MCUX_COMPONENT_driver.vbat ON)
+    endif()
   endif()
 endif()
 
@@ -244,7 +252,7 @@ if(CONFIG_SOC_MK82F25615 OR CONFIG_SOC_MK64F12 OR CONFIG_SOC_MK66F18 OR
   set(CONFIG_MCUX_COMPONENT_driver.sysmpu ON)
 endif()
 
-if(CONFIG_SOC_MCXW716C OR CONFIG_SOC_MCXW727C OR CONFIG_SOC_MCXN947 OR CONFIG_SOC_MCXN547)
+if(CONFIG_SOC_MCXW716C OR CONFIG_SOC_MCXW727C OR CONFIG_SOC_MCXW70AC OR CONFIG_SOC_MCXN947 OR CONFIG_SOC_MCXN547)
   set_variable_ifdef(CONFIG_SOC_FLASH_MCUX CONFIG_MCUX_COMPONENT_driver.flash_k4)
 endif()
 
@@ -256,7 +264,7 @@ if(CONFIG_SOC_MCXW716C OR CONFIG_SOC_MCXW727C)
   endif()
 endif()
 
-if(CONFIG_SOC_S32K344)
+if(CONFIG_SOC_S32K344 OR CONFIG_SOC_SERIES_MCXE31X)
   set_variable_ifdef(CONFIG_SOC_FLASH_MCUX_C40 CONFIG_MCUX_COMPONENT_driver.flash_c40)
 endif()
 
@@ -323,7 +331,7 @@ if(CONFIG_SOC_SERIES_IMXRT118X)
   set_variable_ifdef(CONFIG_WDT_MCUX_RTWDOG	CONFIG_MCUX_COMPONENT_driver.src_3)
 endif()
 
-if(CONFIG_SOC_SERIES_S32K3 OR CONFIG_SOC_SERIES_S32ZE)
+if(CONFIG_SOC_SERIES_S32K3 OR CONFIG_SOC_SERIES_S32ZE OR CONFIG_SOC_SERIES_S32K5)
   if(CONFIG_DMA)
     zephyr_include_directories(${MCUX_SDK_NG_DIR}/drivers/dmamux)
     set(CONFIG_MCUX_COMPONENT_driver.dmamux ON)
@@ -344,6 +352,9 @@ endif()
 
 if(CONFIG_SOC_MCXW727C OR CONFIG_SOC_MCXW716C)
   set(CONFIG_MCUX_COMPONENT_driver.elemu ON)
+endif()
+
+if(CONFIG_SOC_MCXW727C OR CONFIG_SOC_MCXW716C OR CONFIG_SOC_MCXW70AC)
   set(CONFIG_MCUX_COMPONENT_driver.ccm32k ON)
 endif()
 

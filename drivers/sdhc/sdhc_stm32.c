@@ -211,10 +211,6 @@ static int sdhc_stm32_activate(const struct device *dev)
 	const struct sdhc_stm32_config *config = (struct sdhc_stm32_config *)dev->config;
 	const struct device *const clk = DEVICE_DT_GET(STM32_CLOCK_CONTROL_NODE);
 
-	if (!device_is_ready(clk)) {
-		return -ENODEV;
-	}
-
 	ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
 	if (ret < 0) {
 		return ret;
@@ -551,7 +547,7 @@ static void sdhc_stm32_init_props(const struct device *dev)
 	props->host_caps.vol_330_support = true;
 	props->host_caps.vol_180_support = sdhc_config->support_1_8_v;
 	props->host_caps.bus_8_bit_support = (sdhc_config->bus_width == SDHC_BUS_WIDTH8BIT);
-	props->host_caps.bus_4_bit_support = (sdhc_config->bus_width == SDHC_BUS_WIDTH4BIT);
+	props->bus_4_bit_support = (sdhc_config->bus_width == SDHC_BUS_WIDTH4BIT);
 }
 
 static int sdhc_stm32_get_host_props(const struct device *dev, struct sdhc_host_props *props)

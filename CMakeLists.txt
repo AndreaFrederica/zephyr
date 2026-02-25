@@ -232,42 +232,6 @@ get_property(LINKER_OPTIMIZE_FOR_SPEED_FLAG TARGET linker PROPERTY optimization_
 get_property(LINKER_OPTIMIZE_FOR_SIZE_FLAG  TARGET linker PROPERTY optimization_size)
 get_property(LINKER_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG TARGET linker PROPERTY optimization_size_aggressive)
 
-# Let the assembler inherit the optimization flags of the compiler if it is
-# not set explicitly.
-if(NOT ASM_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG)
-  set(ASM_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG ${COMPILER_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG})
-endif()
-if(NOT ASM_OPTIMIZE_FOR_DEBUG_FLAG)
-  set(ASM_OPTIMIZE_FOR_DEBUG_FLAG ${COMPILER_OPTIMIZE_FOR_DEBUG_FLAG})
-endif()
-if(NOT ASM_OPTIMIZE_FOR_SPEED_FLAG)
-  set(ASM_OPTIMIZE_FOR_SPEED_FLAG ${COMPILER_OPTIMIZE_FOR_SPEED_FLAG})
-endif()
-if(NOT ASM_OPTIMIZE_FOR_SIZE_FLAG)
-  set(ASM_OPTIMIZE_FOR_SIZE_FLAG ${COMPILER_OPTIMIZE_FOR_SIZE_FLAG})
-endif()
-if(NOT ASM_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG)
-  set(ASM_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG ${COMPILER_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG})
-endif()
-
-# Let the linker inherit the optimization flags of the compiler if it is
-# not set explicitly.
-if(NOT LINKER_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG)
-  set(LINKER_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG ${COMPILER_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG})
-endif()
-if(NOT LINKER_OPTIMIZE_FOR_DEBUG_FLAG)
-  set(LINKER_OPTIMIZE_FOR_DEBUG_FLAG ${COMPILER_OPTIMIZE_FOR_DEBUG_FLAG})
-endif()
-if(NOT LINKER_OPTIMIZE_FOR_SPEED_FLAG)
-  set(LINKER_OPTIMIZE_FOR_SPEED_FLAG ${COMPILER_OPTIMIZE_FOR_SPEED_FLAG})
-endif()
-if(NOT LINKER_OPTIMIZE_FOR_SIZE_FLAG)
-  set(LINKER_OPTIMIZE_FOR_SIZE_FLAG ${COMPILER_OPTIMIZE_FOR_SIZE_FLAG})
-endif()
-if(NOT LINKER_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG)
-  set(LINKER_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG ${COMPILER_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG})
-endif()
-
 # From kconfig choice, pick the actual OPTIMIZATION_FLAG to use.
 # Kconfig choice ensures only one of these CONFIG_*_OPTIMIZATIONS is set.
 if(CONFIG_NO_OPTIMIZATIONS)
@@ -593,6 +557,14 @@ if(CONFIG_INSTRUMENTATION)
     zephyr_compile_options($<$<COMPILE_LANGUAGE:C>:$<TARGET_PROPERTY:compiler,func_instrumentation_exclude_file_list>>)
     zephyr_compile_options($<$<COMPILE_LANGUAGE:CXX>:$<TARGET_PROPERTY:compiler,func_instrumentation_exclude_file_list>>)
   endif()
+endif()
+
+if(CONFIG_COMPILER_CODEGEN_VLIW_ENABLED)
+  zephyr_compile_options($<$<COMPILE_LANGUAGE:C>:$<TARGET_PROPERTY:compiler,generate_vliw>>)
+  zephyr_compile_options($<$<COMPILE_LANGUAGE:CXX>:$<TARGET_PROPERTY:compiler,generate_vliw>>)
+elseif(CONFIG_COMPILER_CODEGEN_VLIW_DISABLED)
+  zephyr_compile_options($<$<COMPILE_LANGUAGE:C>:$<TARGET_PROPERTY:compiler,no_generate_vliw>>)
+  zephyr_compile_options($<$<COMPILE_LANGUAGE:CXX>:$<TARGET_PROPERTY:compiler,no_generate_vliw>>)
 endif()
 
 # Allow the user to inject options when calling cmake, e.g.
@@ -1507,6 +1479,8 @@ if(CONFIG_USERSPACE OR CONFIG_DEVICE_DEPS)
   )
   target_link_libraries_ifdef(CONFIG_NATIVE_LIBRARY ${ZEPHYR_LINK_STAGE_EXECUTABLE}
                               $<TARGET_PROPERTY:linker,no_position_independent>)
+  target_link_libraries_ifdef(CONFIG_LLEXT_EXPORT_BUILTINS_BY_SLID ${ZEPHYR_LINK_STAGE_EXECUTABLE}
+                              $<TARGET_PROPERTY:linker,no_check_sections>)
   target_byproducts(TARGET ${ZEPHYR_LINK_STAGE_EXECUTABLE}
                     BYPRODUCTS ${PROJECT_BINARY_DIR}/${ZEPHYR_LINK_STAGE_EXECUTABLE}.map
   )
@@ -1724,6 +1698,8 @@ toolchain_ld_link_elf(
 )
 target_link_libraries_ifdef(CONFIG_NATIVE_LIBRARY ${ZEPHYR_LINK_STAGE_EXECUTABLE}
                             $<TARGET_PROPERTY:linker,partial_linking>)
+target_link_libraries_ifdef(CONFIG_LLEXT_EXPORT_BUILTINS_BY_SLID ${ZEPHYR_LINK_STAGE_EXECUTABLE}
+                            $<TARGET_PROPERTY:linker,no_check_sections>)
 target_byproducts(TARGET ${ZEPHYR_LINK_STAGE_EXECUTABLE}
                   BYPRODUCTS ${PROJECT_BINARY_DIR}/${ZEPHYR_LINK_STAGE_EXECUTABLE}.map
 )
@@ -1775,6 +1751,8 @@ else()
     LIBRARIES_POST_SCRIPT ""
     DEPENDENCIES          ${CODE_RELOCATION_DEP}
   )
+  target_link_libraries_ifdef(CONFIG_LLEXT_EXPORT_BUILTINS_BY_SLID ${ZEPHYR_FINAL_EXECUTABLE}
+                            $<TARGET_PROPERTY:linker,no_check_sections>)
   set_property(TARGET   ${ZEPHYR_FINAL_EXECUTABLE} PROPERTY LINK_DEPENDS ${PROJECT_BINARY_DIR}/linker.cmd)
   add_dependencies(     ${ZEPHYR_FINAL_EXECUTABLE} linker_zephyr_final_script_target)
 
@@ -2137,17 +2115,29 @@ if(CONFIG_BUILD_OUTPUT_INFO_HEADER)
     )
 endif()
 
-if(CONFIG_LLEXT AND CONFIG_LLEXT_EXPORT_BUILTINS_BY_SLID)
-  #slidgen must be the first post-build command to be executed
-  #on the Zephyr ELF to ensure that all other commands, such as
-  #binary file generation, are operating on a preparated ELF.
-  list(PREPEND
+if(CONFIG_LLEXT)
+  # Add discarded groups inspector to post-build commands
+  list(APPEND
     post_build_commands
     COMMAND ${PYTHON_EXECUTABLE}
-    ${ZEPHYR_BASE}/scripts/build/llext_prepare_exptab.py
+    ${ZEPHYR_BASE}/scripts/build/llext_inspect_discarded_groups.py
     --elf-file ${PROJECT_BINARY_DIR}/${KERNEL_ELF_NAME}
-    --slid-listing ${PROJECT_BINARY_DIR}/slid_listing.txt
+    --dotconfig-file ${DOTCONFIG}
+    --output-report ${PROJECT_BINARY_DIR}/llext_discarded_groups.txt
   )
+
+  if(CONFIG_LLEXT_EXPORT_BUILTINS_BY_SLID)
+    #slidgen must be the first post-build command to be executed
+    #on the Zephyr ELF to ensure that all other commands, such as
+    #binary file generation, are operating on a preparated ELF.
+    list(PREPEND
+      post_build_commands
+      COMMAND ${PYTHON_EXECUTABLE}
+      ${ZEPHYR_BASE}/scripts/build/llext_prepare_exptab.py
+      --elf-file ${PROJECT_BINARY_DIR}/${KERNEL_ELF_NAME}
+      --slid-listing ${PROJECT_BINARY_DIR}/slid_listing.txt
+    )
+  endif()
 endif()
 
 if(NOT CMAKE_C_COMPILER_ID STREQUAL "ARMClang")
@@ -2287,7 +2277,7 @@ endif()
 add_custom_command(
   TARGET ${logical_target_for_zephyr_elf}
   POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E echo "Generating files from ${PROJECT_BINARY_DIR}/${KERNEL_ELF_NAME} for board: ${BOARD}${BOARD_QUALIFIERS}"
+  COMMAND ${CMAKE_COMMAND} -E echo "Generating files from ${PROJECT_BINARY_DIR}/${KERNEL_ELF_NAME} for board: ${BOARD}/${BOARD_QUALIFIERS}"
   ${post_build_commands}
   BYPRODUCTS
   ${post_build_byproducts}

@@ -60,6 +60,23 @@ config MBEDTLS_GENPRIME_ENABLED
 
 endif # MBEDTLS_RSA_C
 
+config MBEDTLS_RSA_ENABLE_LEGACY_APIS
+	bool
+	imply MBEDTLS_RSA_C
+	imply MBEDTLS_PKCS1_V15
+	default y if MBEDTLS_CIPHERSUITE_TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 || \
+		     MBEDTLS_CIPHERSUITE_TLS_RSA_WITH_AES_256_CBC_SHA256
+	help
+	  Promptless Kconfig to automatically enable legacy RSA crypto support
+	  when RSA based ciphersuites are enabled.
+	  This is required because TLS/X.509 code still relies on these legacy
+	  symbols to guard parts of the code.
+	  In theory this fix is only necessary when TF-M is enabled, because
+	  otherwise when Mbed TLS uses its own implementation of PSA Crypto
+	  it automatically does this internally. On the other hand it doesn't hurt to
+	  always enable it.
+	  This fix is very likely to be removed with Mbed TLS 4.x.
+
 config MBEDTLS_KEY_EXCHANGE_ALL_ENABLED
 	bool "All available ciphersuite modes"
 	select MBEDTLS_MD_C
@@ -90,7 +107,7 @@ config MBEDTLS_KEY_EXCHANGE_ECDHE_PSK_ENABLED
 
 config MBEDTLS_KEY_EXCHANGE_RSA_PSK_ENABLED
 	bool "RSA-PSK based ciphersuite modes"
-	depends on MBEDTLS_PKCS1_V15 || MBEDTLS_PKCS1_V21
+	depends on PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_BASIC
 
 config MBEDTLS_PSK_MAX_LEN
 	int "Max size of TLS pre-shared keys"
@@ -102,11 +119,7 @@ config MBEDTLS_PSK_MAX_LEN
 config MBEDTLS_KEY_EXCHANGE_RSA_ENABLED
 	bool "RSA-only based ciphersuite modes"
 	depends on MBEDTLS_MD_C
-	depends on PSA_CRYPTO_CLIENT || MBEDTLS_PKCS1_V15 || MBEDTLS_PKCS1_V21
-	select PSA_WANT_KEY_TYPE_RSA_PUBLIC_KEY if PSA_CRYPTO_CLIENT
-	select PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_IMPORT if PSA_CRYPTO_CLIENT
-	select PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_EXPORT if PSA_CRYPTO_CLIENT
-	select PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_GENERATE if PSA_CRYPTO_CLIENT
+	depends on PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_BASIC
 
 config MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED
 	bool "DHE-RSA based ciphersuite modes"
@@ -114,8 +127,8 @@ config MBEDTLS_KEY_EXCHANGE_DHE_RSA_ENABLED
 
 config MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED
 	bool "ECDHE-RSA based ciphersuite modes"
-	depends on MBEDTLS_PKCS1_V15 || MBEDTLS_PKCS1_V21
-	depends on MBEDTLS_ECDH_C
+	depends on PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_BASIC
+	depends on PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_BASIC
 
 config MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED
 	bool "ECDHE-ECDSA based ciphersuite modes"
@@ -134,7 +147,7 @@ config MBEDTLS_KEY_EXCHANGE_ECDH_RSA_ENABLED
 
 config MBEDTLS_KEY_EXCHANGE_ECJPAKE_ENABLED
 	bool "ECJPAKE based ciphersuite modes"
-	depends on MBEDTLS_ECJPAKE_C
+	depends on MBEDTLS_ECJPAKE_C || PSA_WANT_ALG_JPAKE
 
 if MBEDTLS_SSL_PROTO_TLS1_3
 

@@ -29,12 +29,39 @@ Build System
   :kconfig:option:`CONFIG_STD_C99` or :kconfig:option:`CONFIG_STD_C11`.
 * The ``full_name`` property of ``board``/``boards`` entries corresponding to new boards in
   board.yml files is now required.
+* The CMake variable ``BOARD_QUALIFIERS`` is aligned with the corresponding
+  :kconfig:option:`CONFIG_BOARD_QUALIFIERS` so that it is no longer prefixed with a ``/``.
+  This means that any use of ``${BOARD}${BOARD_QUALIFIERS}`` must be updated to include ``/``, like
+  this: ``${BOARD}/${BOARD_QUALIFIERS}``.
+* ``SNIPPET_ROOT`` has been aligned with other Zephyr ``<type>_ROOT`` settings which doesn't include
+  the application source dir per-default. Samples requiring application source dir to be added to
+  ``SNIPPET_ROOT`` must instead add the application source dir using ``snippet_root = <dir>`` entry
+  in :file:`zephyr/module.yml` or manually append the folder to the CMake variable ``SNIPPET_ROOT``.
 
 Kernel
 ******
 
 Boards
 ******
+
+* The OpenOCD runner now uses the standard ``--file`` and ``--file-type`` interface for specifying
+  flash files, aligning with other runners like JLink. The following changes apply:
+
+  * The ``--use-hex``, ``--use-elf``, and ``--use-bin`` flags are deprecated. Use ``--file-type``
+    instead:
+
+    * ``--use-elf`` → ``--file-type=elf``
+    * ``--use-bin`` → ``--file-type=bin``
+    * ``--use-hex`` → ``--file-type=hex`` (or omit, as hex is the default)
+
+  * The ``--file`` option is now supported to specify a custom file path, similar to the JLink
+    runner.
+
+  * Board cmake files using the deprecated flags will continue to work but will emit a deprecation
+    warning.
+
+  * The ``--file-type`` option can now be used without ``--file`` to select between build artifacts
+    (hex, elf, bin).
 
 * m5stack_fire: Removed unused pinctrl entries for UART2, and updated the UART1
   pin mapping from GPIO32/GPIO33 to GPIO16/GPIO17 to match the documented Grove
@@ -96,7 +123,41 @@ Boards
   * :kconfig:option:`CONFIG_SOC_SERIES_NRF91X` with :kconfig:option:`CONFIG_SOC_SERIES_NRF91`
   * :kconfig:option:`CONFIG_SOC_SERIES_NRF92X` with :kconfig:option:`CONFIG_SOC_SERIES_NRF92`
 
+* The following Sifive Freedom SoC Kconfigs have been deprecated and replaced, and
+  Kconfig/CMake/code needs to be updated if they reference the deprecated Kconfigs:
+
+  * :kconfig:option:`CONFIG_SOC_SERIES_SIFIVE_FREEDOM_FE300` with
+    :kconfig:option:`CONFIG_SOC_SERIES_FE300`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FE310_G000` with
+    :kconfig:option:`CONFIG_SOC_FE310_G000`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FE310_G002` with
+    :kconfig:option:`CONFIG_SOC_FE310_G002`
+  * :kconfig:option:`CONFIG_SOC_SERIES_SIFIVE_FREEDOM_FU500` with
+    :kconfig:option:`CONFIG_SOC_SERIES_FU500`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU540` with :kconfig:option:`CONFIG_SOC_FU540`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU540_E51` with
+    :kconfig:option:`CONFIG_SOC_FU540_E51`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU540_U54` with
+    :kconfig:option:`CONFIG_SOC_FU540_U54`
+  * :kconfig:option:`CONFIG_SOC_SERIES_SIFIVE_FREEDOM_FU700` with
+    :kconfig:option:`CONFIG_SOC_SERIES_FU700`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU740` with :kconfig:option:`CONFIG_SOC_FU740`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU740_S7` with :kconfig:option:`CONFIG_SOC_FU740_S7`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU740_U74` with
+    :kconfig:option:`CONFIG_SOC_FU740_U74`
+
 * ITE ``it515xx_evb`` is renamed to ``it51xxx_evb``.
+
+* Boards that have NVM devices must now correctly have their addresses set or inheritied when they
+  do not start at address 0x0. In previous zephyr releases, a ``partitions`` entry in DTS was
+  wrongly interpreted as starting in the flash device's address range even though the DTS file
+  does not describe this and instead describes flash partitions starting at absolute addresses
+  e.g. 0x0. If you build and get the deprecated Kconfig
+  :kconfig:option:`CONFIG_FLASH_CODE_PARTITION_ADDRESS_INVALID` being set then this means your
+  board, SoC or DTS files are wrong and need updating, a ``ranges <>;`` property should be used
+  by the flash nodes to specify the base address and size for child nodes, and
+  ``fixed-partitions``/``fixed-subpartitions`` nodes must have a ``ranges;`` property to pass the
+  parent's ranges on to child nodes.
 
 Device Drivers and Devicetree
 *****************************
@@ -153,15 +214,27 @@ Controller Area Network (CAN)
   * :kconfig:option:`CONFIG_CAN_XMC4XXX_MAX_FILTERS` for :dtcompatible:`infineon,xmc4xxx-can-node`
 
 * Replaced Kconfig option ``CONFIG_CAN_MAX_MB`` for :dtcompatible:`nxp,flexcan` and
-  :dtcompatible:`nxp,flexcan-fd` with per-instance ``number-of-mb`` and
-  ``number-of-mb-fd`` devicetree properties (:github:`99483`).
+  :dtcompatible:`nxp,flexcan-fd` with per-instance a ``number-of-mb`` devicetree property
+  (:github:`99483`).
 
 * The :dtcompatible:`nxp,flexcan` ``clk-source`` devicetree property, if present, now automatically
   selects between the named input clocks ``clksrc0`` and ``clksrc1`` for use as the CAN protocol
   engine clock.
 
+* Renamed the NXP LPC family MCAN driver Kconfig option ``CONFIG_CAN_MCUX_MCAN`` to
+  :kconfig:option:`CONFIG_CAN_NXP_LPC_MCAN` as this driver is not based on the NXP MCUXpresso HAL
+  (:github:`103679`).
+
+* Added devicetree property ``ti,nwkrq-voltage-vio`` to :dtcompatible:`ti,tcan4x5x` to allow
+  configuring the voltage rail used for the ``nWKRQ`` pin. To maintain previous driver default of
+  using VIO, this property must be set (:github:`104182`).
+
 Counter
 =======
+
+* Drivers that implement ``get_value_64`` API will now need to select
+  :kconfig:option:`CONFIG_COUNTER_SUPPORTS_64BITS_TICKS` and applications will need
+  :kconfig:option:`CONFIG_COUNTER_64BITS_TICKS` to enable the API. (:github:`94189`).
 
 * The NXP LPTMR driver (:dtcompatible:`nxp,lptmr`) has been updated to fix incorrect
   prescaler and glitch filter configuration:
@@ -413,7 +486,10 @@ Ethernet
   * :dtcompatible:`litex,liteeth` (:github:`100620`)
   * :dtcompatible:`microchip,lan865x` (:github:`100318`)
   * :dtcompatible:`microchip,lan9250` (:github:`99127`)
+  * :dtcompatible:`nxp,enet-mac` (:github:`102775`)
   * :dtcompatible:`sensry,sy1xx-mac` (:github:`100619`)
+  * :dtcompatible:`st,stm32n6-ethernet`, :dtcompatible:`st,stm32h7-ethernet`
+    and :dtcompatible:`st,stm32-ethernet` (:github:`102810`)
   * :dtcompatible:`virtio,net` (:github:`100106`)
   * :dtcompatible:`vnd,ethernet` (:github:`96598`)
   * :dtcompatible:`wiznet,w5500` (:github:`100919`)
@@ -426,6 +502,25 @@ Ethernet
 * The ``reset-gpios`` property of :dtcompatible:`microchip,ksz8081` has been
   reworked to be used as active low, you may have to set the pin as
   ``GPIO_ACTIVE_LOW`` in devicetree (:github:`100751`).
+
+* :kconfig:option:`CONFIG_ETH_INIT_PRIORITY` is now set to 60 by default.
+  :kconfig:option:`CONFIG_PHY_INIT_PRIORITY` and :kconfig:option:`CONFIG_MDIO_INIT_PRIORITY` are now
+  defaulting to the value of :kconfig:option:`CONFIG_ETH_INIT_PRIORITY`. Same for
+  :kconfig:option:`CONFIG_PTP_CLOCK_INIT_PRIORITY`,  but only if :kconfig:option:`CONFIG_ETH_DRIVER`
+  is enabled. This way the priority is based on the dependencies in the devicetree.
+
+File System
+===========
+
+* :kconfig:option:`CONFIG_FS_FATFS_FSTAB_AUTOMOUNT` is now enabled by default, if any enabled
+  :dtcompatible:`zephyr,fstab,fatfs` with the ``automount`` property are present in the devicetree.
+  Applications that do not want this behavior need to explicitly disable this option.
+
+* NVS and ZMS have been moved to the new Key-Value Storage Systems (KVSS) subsystem; the move
+  affects NVS and ZMS interface header paths which have been moved from
+  ``zephyr/fs/`` to ``zephyr/kvss/``.
+  Kconfig options for NVS and ZMS have been moved from underneath "File Systems" menu to
+  "Key-Value Storage Systems" menu, no Kconfigs have been affected.
 
 GPIO
 ====
@@ -491,12 +586,64 @@ Infineon
   * ``CONFIG_*_INFINEON_CAT1`` → ``CONFIG_*_INFINEON``
   * ``compatible: "infineon,cat1-adc"`` → ``compatible: "infineon,adc"``
 
+* Infineon Bluetooth HCI UART driver (:kconfig:option:`CONFIG_BT_HCI_UART_INFINEON`) with
+  compatible :dtcompatible:`infineon,bt-hci-uart` is now explicitly scoped to AIROC connectivity
+  chips that use HCI UART transport.
+  (:github:`103871`)
+
+  Corresponding Kconfig symbols and devicetree compatibles have also been updated:
+
+  * ``CONFIG_BT_CYW43XX`` → :kconfig:option:` CONFIG_BT_HCI_UART_INFINEON`
+  * ``dtcompatible: "infineon,cyw43xxx-bt-hci"`` → ``dtcompatible: "infineon,bt-hci-uart"``
+
 MDIO
 ====
 
 * The ``mdio_bus_enable()`` and ``mdio_bus_disable()`` functions have been removed.
   MDIO bus enabling/disabling is now handled internally by the MDIO drivers.
   (:github:`99690`).
+
+* The MDIO driver area has been integrated into the Ethernet driver area.
+  The drivers have been moved from ``drivers/mdio/`` to :zephyr_file:`drivers/ethernet/mdio/`.
+  The devicetree bindings have been moved from ``dts/bindings/mdio/`` to
+  :zephyr_file:`dts/bindings/ethernet/mdio/`. (:github:`103944`)
+
+MEMC
+====
+
+* :dtcompatible:`st,stm32-xspi-psram` and :dtcompatible:`st,stm32-ospi-psram`
+  compatible nodes now need to include the ``st,refresh`` property to specify
+  the PSRAM refresh rate in number of memory clock cycles. (:github:`102735`).
+  Hard-coded default values in drivers, of 320 (:dtcompatible:`st,stm32-xspi-psram`) and 129
+  (:dtcompatible:`st,stm32-ospi-psram`), have been removed.
+
+NXP
+===
+
+* NXP DTSI files were moved into family-specific subdirectories under ``dts/arm/nxp``
+  to improve maintainability and discoverability and to match the structure under
+  ``soc/nxp``. Devicetree include paths must be updated for moved files. Update
+  includes of the form ``#include <nxp/nxp_*.dtsi>`` to use the correct family
+  subdirectory. (:github:`101243`).
+
+  Example:
+
+  .. code-block:: dts
+
+    /* Before */
+    #include <nxp/nxp_rt1060.dtsi>
+
+    /* After */
+    #include <nxp/imxrt/nxp_rt1060.dtsi>
+
+  This change only applies to NXP ARM SoC include files that were moved from ``dts/arm/nxp``.
+  Do not change includes for DTSI files that live elsewhere (for example under ``dts/arm64/nxp``).
+
+  To locate affected includes, you can search for the old include prefix:
+
+  .. code-block:: console
+
+    git grep "#include <nxp/nxp_" -- '*.dtsi' '*.dts' '*.overlay'
 
 QSPI
 ====
@@ -520,6 +667,14 @@ Radio
 
 * Device trees and overlays using the old compatible strings must be updated to use the new names.
 
+SD Host Controller
+==================
+
+* Moved extra fields ``bus_4_bit_support``, ``hs200_support`` and ``hs400_support`` from
+  :c:struct:`sdhc_host_caps` to :c:struct:`sdhc_host_props` as per the
+  `SD Host Controller Specification <https://www.sdcard.org/downloads/pls/pdf/?p=PartA2_SD%20Host_Controller_Simplified_Specification_Ver4.20.jpg>`_.
+  (:github:`91701`)
+
 Shell
 =====
 
@@ -532,43 +687,56 @@ Stepper
 * For :dtcompatible:`adi,tmc2209`, the property ``msx-gpios`` is now replaced by ``m0-gpios`` and
   ``m1-gpios`` for consistency with other step/dir stepper drivers.
 
-* Since :github:`91979`, All stepper-drv driver APIs have been refactored out of the stepper API.
-  The following APIs have been moved from :c:group:`stepper_interface` to :c:group:`stepper_drv_interface`:
+* Several API functions have been renamed:
 
-  * :c:func:`stepper_enable` is replaced by :c:func:`stepper_drv_enable`.
-  * :c:func:`stepper_disable` is replaced by :c:func:`stepper_drv_disable`.
-  * :c:func:`stepper_set_micro_step_res` is replaced by :c:func:`stepper_drv_set_micro_step_res`.
-  * :c:func:`stepper_get_micro_step_res` is replaced by :c:func:`stepper_drv_get_micro_step_res`.
+  * ``stepper_move_by`` to :c:func:`stepper_ctrl_move_by`.
+  * ``stepper_move_to`` to :c:func:`stepper_ctrl_move_to`.
+  * ``stepper_is_moving`` to :c:func:`stepper_ctrl_is_moving`.
+  * ``stepper_run`` to :c:func:`stepper_ctrl_run`.
+  * ``stepper_stop`` to :c:func:`stepper_ctrl_stop`.
+  * ``stepper_set_reference_position`` to :c:func:`stepper_ctrl_set_reference_position`.
+  * ``stepper_get_actual_position`` to :c:func:`stepper_ctrl_get_actual_position`.
+  * ``stepper_set_microstep_interval`` to :c:func:`stepper_ctrl_set_microstep_interval`.
 
-* :c:enum:`stepper_micro_step_resolution` is replaced by :c:enum:`stepper_drv_micro_step_resolution`.
-* ``STEPPER_DRV_EVENT_STALL_DETECTED`` and ``STEPPER_DRV_EVENT_FAULT_DETECTED`` events have been
-  refactored to :c:enum:`stepper_drv_event`.
+* The following events have been moved from :c:enum:`stepper_event` to :c:enum:`stepper_ctrl_event`:
 
-* :dtcompatible:`zephyr,gpio-step-dir-stepper` implements :c:group:`stepper_interface` for
-  controlling stepper motors via GPIO step and direction signals. Refer to
-  :ref:`stepper-individual-controller-driver` for more details.
+  * ``STEPPER_EVENT_STEPS_COMPLETED`` to ``STEPPER_CTRL_EVENT_STEPS_COMPLETED``.
+  * ``STEPPER_EVENT_LEFT_END_STOP_DETECTED`` to ``STEPPER_CTRL_EVENT_LEFT_END_STOP_DETECTED```.
+  * ``STEPPER_EVENT_RIGHT_END_STOP_DETECTED`` to ``STEPPER_CTRL_EVENT_RIGHT_END_STOP_DETECTED``.
+  * ``STEPPER_EVENT_STOPPED`` to ``STEPPER_CTRL_EVENT_STOPPED``.
 
-  * ``step-gpios``, ``dir-gpios``, ``invert-direction`` and ``counter`` properties are removed
-    from :dtcompatible:`adi,tmc2209`, :dtcompatible:`ti,drv84xx` and :dtcompatible:`allegro,a4979`,
-    these are now are implemented by :dtcompatible:`zephyr,gpio-step-dir-stepper`.
-  * :c:func:`stepper_move_by`, :c:func:`stepper_move_to`, :c:func:`stepper_run`,
-    :c:func:`stepper_stop`, :c:func:`stepper_is_moving`, :c:func:`stepper_set_microstep_interval`
-    and :c:func:`stepper_set_event_callback` APIs are removed from :dtcompatible:`adi,tmc2209`,
-    :dtcompatible:`ti,drv84xx` and :dtcompatible:`allegro,a4979`.
-  * :dtcompatible:`adi,tmc2209`, :dtcompatible:`ti,drv84xx` and :dtcompatible:`allegro,a4979`
-    implement :c:group:`stepper_drv_interface`.
+* The ``step-gpios``, ``dir-gpios``, ``invert-direction``, and ``counter`` properties have been
+  removed from all bindings of step-dir stepper hardware driver devices (:dtcompatible:`adi,tmc2209`,
+  :dtcompatible:`ti,drv84xx`, and :dtcompatible:`allegro,a4979`) and moved to the new generic stepper
+  motion controller binding :dtcompatible:`zephyr,gpio-step-dir-stepper-ctrl`.
 
-* :c:func:`stepper_enable`, :c:func:`stepper_disable`, :c:func:`stepper_set_micro_step_res` and
-  :c:func:`stepper_get_micro_step_res` APIs are removed from :dtcompatible:`zephyr,h-bridge-stepper`.
-* ``en-gpios`` property is removed from :dtcompatible:`zephyr,h-bridge-stepper`.
-* ``micro-step-res`` property is replaced by ``lut-step-gap`` property in
-  :dtcompatible:`zephyr,h-bridge-stepper`.
+* Motion control must now be performed through a :dtcompatible:`zephyr,gpio-step-dir-stepper-ctrl`
+  device that references the stepper hardware driver devicetree node via the ``stepper-driver`` property.
+  Applications must update their devicetree to add a motion controller node and use the ``stepper_ctrl_*``
+  APIs, instead of calling motion control functions directly on the stepper hardware driver device.
+
+* Stepper hardware driver specific APIs have been removed from the H-bridge stepper controller:
+
+  * :dtcompatible:`zephyr,h-bridge-stepper` is renamed to :dtcompatible:`zephyr,h-bridge-stepper-ctrl` to
+    reflect that it is a stepper motion controller binding, not a stepper hardware driver binding.
+
+  * :c:func:`stepper_enable`, :c:func:`stepper_disable`, :c:func:`stepper_set_micro_step_res`,
+    and :c:func:`stepper_get_micro_step_res` API functions are no longer usable with
+    :dtcompatible:`zephyr,h-bridge-stepper-ctrl` compatible devices.
+
+  * The ``en-gpios`` property has been removed from :dtcompatible:`zephyr,h-bridge-stepper-ctrl`.
+
+  * The ``micro-step-res`` property has been replaced by ``lut-step-gap`` in
+    :dtcompatible:`zephyr,h-bridge-stepper-ctrl` to better reflect the H-bridge control mechanism,
+    which uses lookup table interpolation rather than hardware micro-stepping.
+
+  Applications using H-bridge stepper controller must:
+
+  1. Remove calls to stepper hardware driver specific APIs on H-bridge controller devices
+  2. Update devicetree to use ``lut-step-gap`` instead of ``micro-step-res``
+  3. Remove ``en-gpios`` property if present
 
 * :dtcompatible:`adi,tmc50xx` and :dtcompatible:`adi,tmc51xx` devices are now modeled as MFDs.
-* :dtcompatible:`adi,tmc50xx-stepper` and :dtcompatible:`adi,tmc51xx-stepper` drivers implement
-  :c:group:`stepper_interface`.
-* :dtcompatible:`adi,tmc50xx-stepper-drv` and :dtcompatible:`adi,tmc51xx-stepper-drv` drivers implement
-  :c:group:`stepper_drv_interface`.
 
 STM32
 =====
@@ -617,6 +785,38 @@ STM32
   Besides, when applicable to the SoC, these properties need to be defined if the corresponding
   ``div-q`` or ``div-r`` properties are used.
 
+* For STM32L4x, the :dtcompatible:`st,stm32l4-pllsai-clock` binding has been replaced by the
+  existing :dtcompatible:`st,stm32l4-pll-clock`. This replacement brings a renaming of the
+  ``div-divr`` property to ``post-div-r``.
+
+* The MAC address generation in :zephyr_file:`drivers/ethernet/eth_stm32_hal_common.c` for STM32
+  platforms now use :c:struct:`net_eth_mac_config` when one of these properties are used in the MAC
+  device-tree node:
+
+    * ``zephyr,random-mac-address`` (a)
+    * ``local-mac-address`` (b)
+    * ``nvmem-cells`` (c) (NEW)
+
+  This causes backward compatibility breakage for implementations using (a) or (b) properties.
+  Previous implementation using these properties in the DT mixed an ST OUI for the first 3 MSB with
+  random (a) or explicit (b) bits for the 3 LSB of the MAC address. Now, the MAC address is fully
+  random (a), fully or partially written in the device-tree (b).
+
+  New implementation (c) allows to refer to a MAC address stored in non-volatile memory.
+  E.g: BSEC peripheral managing :abbr:`OTP(One Time Programmable)` fuses on STM32N6x platforms.
+  See :c:func:`net_eth_mac_load` for more details.
+
+  When none of these properties are specified in the MAC node, the legacy implementation is used.
+  (:github:`102810`)
+
+  .. note:: This change aligns STM32 platforms' behavior with the generic Zephyr one. Previous
+            implementation wasn't product-ready so this shouldn't cause much trouble.
+
+* The Kconfig option ``CONFIG_SPI_STM32_USE_HW_SS`` has been removed. SPI operation mode
+  is now selected automatically based on devicetree configuration: instances with either of
+  the ``cs-gpios`` or new ``st,soft-nss`` property operate in "Soft NSS" mode, while all other
+  instances operate in "Hard NSS" mode.
+
 USB
 ===
 
@@ -632,6 +832,27 @@ Video
 
 * The :dtcompatible:`ovti,ov2640` reset pin handling has been corrected, resulting in an inverted
   active level compared to before, to match the active level expected by the sensor.
+
+Watchdog
+========
+
+  * The semantics of :kconfig:option:`CONFIG_WDT_DISABLE_AT_BOOT` have been clarified: the expected
+    behavior when ``CONFIG_WDT_DISABLE_AT_BOOT=n``, which was unclear and implemented inconsistently
+    across drivers, is now explicitly documented in :kconfig:option:`CONFIG_WDT_DISABLE_AT_BOOT`'s
+    description (refer to it for more details).
+
+    All in-tree watchdog drivers have been updated to follow the now documented semantics.
+
+    Notably, ``CONFIG_WDT_DISABLE_AT_BOOT=n`` can no longer be used to have watchdog(s) enabled at
+    boot "*automatically*". Users which relied on this behavior must update their application to
+    explicitly configure a watchdog, as done in the :zephyr:code-sample:`watchdog`. The following
+    Kconfig options related to this incorrect usage have been removed:
+
+      * ``CONFIG_IWDG_STM32_INITIAL_TIMEOUT``
+      * ``CONFIG_WDT_RPI_PICO_INITIAL_TIMEOUT``
+      * ``CONFIG_WDT_CC13XX_CC26XX_INITIAL_TIMEOUT``
+      * ``CONFIG_WDT_CC23X0_INITIAL_TIMEOUT``
+      * ``CONFIG_WDT_CC32XX_INITIAL_TIMEOUT``
 
 .. zephyr-keep-sorted-stop
 
@@ -650,6 +871,17 @@ Bluetooth Host
   protection as of the Bluetooth Core Specification v6.2. Stored bonds that were generated using
   this method will be downgraded to unauthenticated when loaded from persistent storage, resulting
   in a lower security level.
+* The Bluetooth Host no longer depends on :c:func:`k_poll`, and therefore doesn't select
+  :kconfig:option:`CONFIG_POLL`. If the application code itself depends on this, it needs to
+  explicitly enable :kconfig:option:`CONFIG_POLL` in its configuration.
+* Replace any usage of :kconfig:option:`CONFIG_DEVICE_NAME_GATT_WRITABLE_NONE`
+  with :kconfig:option:`CONFIG_BT_DEVICE_NAME_GATT_WRITABLE_NONE`.
+* Replace any usage of :kconfig:option:`CONFIG_DEVICE_NAME_GATT_WRITABLE_ENCRYPT`
+  with :kconfig:option:`CONFIG_BT_DEVICE_NAME_GATT_WRITABLE_ENCRYPT`.
+* Replace any usage of :kconfig:option:`CONFIG_DEVICE_NAME_GATT_WRITABLE_AUTHEN`
+  with :kconfig:option:`CONFIG_BT_DEVICE_NAME_GATT_WRITABLE_AUTHEN`.
+* Replace any usage of :kconfig:option:`CONFIG_DEVICE_APPEARANCE_GATT_WRITABLE_AUTHEN`
+  with :kconfig:option:`CONFIG_BT_DEVICE_APPEARANCE_GATT_WRITABLE_AUTHEN`.
 
 Bluetooth Audio
 ===============
@@ -661,6 +893,9 @@ Bluetooth Audio
 * :kconfig:option:`CONFIG_BT_AUDIO` now depends on :kconfig:option:`CONFIG_UTF8`.
   Applications that enable :kconfig:option:`CONFIG_BT_AUDIO` must also have
   :kconfig:option:`CONFIG_UTF8` enabled. (:github:`102350`)
+* :c:func:`bt_tbs_set_uri_scheme_list` now only takes a single string value,
+  instead of a list/array of URIs. Applications will need to modify any current input
+  from e.g. ``{"tel", "skype"}`` to ``"tel,skype"``. (:github:`102724`)
 
 Bluetooth Mesh
 ==============
@@ -707,6 +942,25 @@ Networking
 * The protocol version passed to :c:func:`zsock_socket` when creating a secure socket is now
   enforced as the minimum TLS version to use for the TLS session.
 
+* Automatic selection of crypto Kconfigs has been removed from :kconfig:option:`NET_SOCKETS_SOCKOPT_TLS`
+  as they strongly depend on the final application's needs. As a consequence the desired TLS protocol
+  version and ciphersuite(s) must be explicitly selected.
+  Available :kconfig:option-regex:`CONFIG_MBEDTLS_CIPHERSUITE_TLS_.*` Kconfig helpers can be used
+  to automatically enable all the dependencies of a given ciphersuite, and more can be added as
+  needed following the same pattern.
+
+CoAP
+====
+
+* Resource-related metadata for CoAP ``.well-known/core`` responses is now configured with a dedicated
+  :c:member:`coap_resource.metadata` pointer instead of :c:member:`coap_resource.user_data`, which
+  should remain for the application to use exclusively. Applications implementing CoAP
+  ``.well-known/core`` handling should be updated to use the new pointer.
+
+* ``COAP_RESPONSE_CODE_OK`` 2.00 response code definition has been removed as it's not a valid
+  response code - it's not defined in :rfc:`7252` and is not assigned in the IANA registry
+  (https://www.iana.org/assignments/core-parameters/core-parameters.xhtml#response-codes).
+
 Modem
 *****
 
@@ -746,6 +1000,7 @@ LoRaWAN
 
 Other subsystems
 ****************
+
 * The DAP subsystem initialization and configuration has changed. Please take a look at
   :zephyr:code-sample:`cmsis-dap` sample on how to initialize Zephyr DAP Link with USB backend.
 
@@ -809,6 +1064,34 @@ Settings
 Modules
 *******
 
+HostAP
+======
+
+* Kconfig :kconfig:option:`CONFIG_WIFI_NM_WPA_SUPPLICANT_CRYPTO_MBEDTLS_PSA` is now
+  enabled by default.
+
+OpenThread
+==========
+
+* The following Kconfigs options were renamed:
+
+  * ``CONFIG_OPENTHREAD_MBEDTLS_CHOICE`` to
+    :kconfig:option:`CONFIG_OPENTHREAD_SECURITY_DEFAULT_CONFIG`
+  * ``CONFIG_CUSTOM_OPENTHREAD_SECURITY`` to
+    :kconfig:option:`CONFIG_OPENTHREAD_SECURITY_CUSTOM_CONFIG`
+
+* :kconfig:option:`CONFIG_OPENTHREAD_CRYPTO_PSA` no more depends on
+  :kconfig:option:`CONFIG_PSA_CRYPTO_CLIENT`, but instead selects
+  :kconfig:option:`CONFIG_PSA_CRYPTO`.
+
+* In builds without TF-M, :kconfig:option:`CONFIG_SECURE_STORAGE` is now automatically
+  implied if :kconfig:option:`CONFIG_OPENTHREAD_SECURITY_DEFAULT_CONFIG` and
+  :kconfig:option:`CONFIG_OPENTHREAD_CRYPTO_PSA` are set. This
+  guarantees that a PSA ITS implementation is available and it requires a backend
+  for Secure Storage (Settings, ZMS, or a custom one) to be configured.
+
+* :kconfig:option:`CONFIG_OPENTHREAD_CRYPTO_PSA` is now enabled by default.
+
 Trusted Firmware-M
 ==================
 
@@ -823,3 +1106,24 @@ Architectures
   the feature is cache related so move it under cache.
 
   * Use :c:func:`sys_cache_is_mem_coherent` instead of :c:func:`arch_mem_coherent`.
+
+* :kconfig:option:`CONFIG_RISCV` now requires, that the :dtcompatible:`riscv` is present in the
+  devicetree.
+
+* The ``riscv,isa-base`` and  ``riscv,isa-extensions`` devicetree properties of
+  :dtcompatible:`riscv` are now used to set the Base Integer Instruction Set and the RISC-V
+  extensions. They are no longer set by the SoC. The devicetree property ``riscv,isa`` has been
+  deprecated in favor of the two new properties. (:github:`97540`)
+
+  * ``CONFIG_SOC_CV64A6_IMAFDC`` and ``CONFIG_SOC_CV64A6_IMAC`` are now combined into
+    :kconfig:option:`CONFIG_SOC_CV64A6`, as the RISC-V extensions are now set by the devicetree.
+
+  * The following options of :kconfig:option:`CONFIG_SOC_SERIES_AE350` had been removed, as they
+    now can be set via the devicetree:
+
+    * ``CONFIG_RV32I_CPU``
+    * ``CONFIG_RV32E_CPU``
+    * ``CONFIG_RV64I_CPU``
+    * ``CONFIG_NO_FPU``
+    * ``CONFIG_SINGLE_PRECISION_FPU``
+    * ``CONFIG_DOUBLE_PRECISION_FPU``

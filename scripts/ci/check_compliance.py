@@ -327,7 +327,7 @@ class CheckPatch(ComplianceTest):
             except subprocess.CalledProcessError as ex:
                 output = ex.output.decode("utf-8")
                 regex = (
-                    r'^\s*\S+:(\d+):\s*(ERROR|WARNING):(.+?):(.+)(?:\n|\r\n?)+'
+                    r'^\s*\S+:(\d+):\s*(ERROR|WARNING):(.+?):(.+)[\r\n]+'
                     r'^\s*#(\d+):\s*FILE:\s*(.+):(\d+):'
                 )
 
@@ -536,6 +536,7 @@ class DevicetreeLintingCheck(ComplianceTest):
     name = "DevicetreeLinting"
     doc = zephyr_doc_detail_builder("/contribute/style/devicetree.html")
     NPX_EXECUTABLE = "npx"
+    prefix = ZEPHYR_BASE / "scripts" / "ci"
 
     def ensure_npx(self) -> bool:
         if not (npx_executable := shutil.which(self.NPX_EXECUTABLE)):
@@ -544,7 +545,7 @@ class DevicetreeLintingCheck(ComplianceTest):
             self.npx_exe = npx_executable
             # --no prevents npx from fetching from registry
             subprocess.run(
-                [self.npx_exe, "--prefix", "./scripts/ci", "--no", 'dts-linter', "--", "--version"],
+                [self.npx_exe, "--prefix", self.prefix, "--no", 'dts-linter', "--", "--version"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=True,
@@ -625,7 +626,7 @@ class DevicetreeLintingCheck(ComplianceTest):
             cmd = [
                 self.npx_exe,
                 "--prefix",
-                "./scripts/ci",
+                self.prefix,
                 "--no",
                 "dts-linter",
                 "--",
@@ -1418,6 +1419,7 @@ Missing SoC names or CONFIG_SOC vs soc.yml out of sync:
             regex,
             "--",
             ":!/doc/releases",
+            ":!/doc/develop/manifest/external",
             ":!/doc/security/vulnerabilities.rst",
             cwd=GIT_TOP,
         )
@@ -1533,6 +1535,7 @@ flagged.
         "CRC",  # Used in TI CC13x2 / CC26x2 SDK comment
         "DEEP_SLEEP",  # #defined by RV32M1 in ext/
         "DESCRIPTION",
+        "DT_HAS_",  # example from doc/build/dts/dt-vs-kconfig.rst
         "ERR",
         "ESP_DIF_LIBRARY",  # Referenced in CMake comment
         "EXPERIMENTAL",
@@ -1554,6 +1557,8 @@ flagged.
         # with older versions of the ICMsg.
         "IPC_SERVICE_ICMSG_BOND_NOTIFY_REPEAT_TO_MS",
         "LIBGCC_RTLIB",
+        "LLEXT_EXPORT_SYMBOL_GROUP_",  # Used in regexp by
+        # scripts/build/llext_inspect_discarded_groups.py
         "LLVM_USE_LD",  # Both LLVM_USE_* are in cmake/toolchain/llvm/Kconfig
         # which are only included if LLVM is selected but
         # not other toolchains. Compliance check would complain,
